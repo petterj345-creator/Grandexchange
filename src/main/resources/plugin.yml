@@ -1,0 +1,12 @@
+name: Grandexchange
+version: '${project.version}'
+main: com.github.petterj345.grandexchange.Grandexchange
+api-version: '1.21'
+description: '${project.description}'
+author: petterj345
+
+commands:
+  grandexchange:
+    description: Base command for the Grandexchange plugin.
+    usage: /grandexchange
+    aliases: [ge]
