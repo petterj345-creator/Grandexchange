@@ -3,7 +3,6 @@ package com.github.petterj345.grandexchange.listener;
 import com.github.petterj345.grandexchange.Grandexchange;
 import com.github.petterj345.grandexchange.gui.BuyMenu;
 import com.github.petterj345.grandexchange.gui.CollectionMenu;
-import com.github.petterj345.grandexchange.gui.ItemDetailMenu;
 import com.github.petterj345.grandexchange.gui.MarketMenu;
 import com.github.petterj345.grandexchange.gui.MyOffersMenu;
 import com.github.petterj345.grandexchange.gui.Nav;
@@ -36,10 +35,14 @@ public final class MenuListener implements Listener {
     }
 
     private static boolean ours(InventoryHolder holder) {
-        return holder instanceof MarketMenu || holder instanceof ItemDetailMenu
-                || holder instanceof BuyMenu || holder instanceof SellMenu
-                || holder instanceof SellSelectMenu || holder instanceof MyOffersMenu
-                || holder instanceof CollectionMenu;
+        return holder instanceof MarketMenu || holder instanceof BuyMenu
+                || holder instanceof SellMenu || holder instanceof SellSelectMenu
+                || holder instanceof MyOffersMenu || holder instanceof CollectionMenu;
+    }
+
+    /** Reopening an inventory must happen a tick after the click to avoid client desync. */
+    private void later(Runnable runnable) {
+        plugin.getServer().getScheduler().runTask(plugin, runnable);
     }
 
     @EventHandler
@@ -76,8 +79,6 @@ public final class MenuListener implements Listener {
             handleMyOffersClick(player, menu, slot);
         } else if (holder instanceof CollectionMenu menu) {
             handleCollectionClick(player, menu, slot);
-        } else if (holder instanceof ItemDetailMenu menu) {
-            handleDetailClick(player, menu, slot);
         } else if (holder instanceof BuyMenu menu) {
             handleBuyClick(player, menu, slot);
         } else if (holder instanceof SellMenu menu) {
@@ -85,15 +86,15 @@ public final class MenuListener implements Listener {
         }
     }
 
-    // ---------------------------------------------------------------- market
+    // ----------------------------------------------------------- buy window
 
     private void handleMarketClick(Player player, MarketMenu menu, int slot) {
         if (slot == Nav.PREV) {
-            menu.reopen(player, menu.page() - 1);
+            later(() -> menu.reopen(player, menu.page() - 1));
             return;
         }
         if (slot == Nav.NEXT) {
-            menu.reopen(player, menu.page() + 1);
+            later(() -> menu.reopen(player, menu.page() + 1));
             return;
         }
         if (Nav.isTab(slot)) {
@@ -102,17 +103,17 @@ public final class MenuListener implements Listener {
         }
         MarketSummary summary = menu.summaryAt(slot);
         if (summary != null) {
-            plugin.exchange().openItemDetail(player, summary.item());
+            plugin.exchange().openBuy(player, summary.item());
         }
     }
 
     private void handleMyOffersClick(Player player, MyOffersMenu menu, int slot) {
         if (slot == Nav.PREV) {
-            menu.reopen(player, menu.page() - 1);
+            later(() -> menu.reopen(player, menu.page() - 1));
             return;
         }
         if (slot == Nav.NEXT) {
-            menu.reopen(player, menu.page() + 1);
+            later(() -> menu.reopen(player, menu.page() + 1));
             return;
         }
         if (Nav.isTab(slot)) {
@@ -131,11 +132,11 @@ public final class MenuListener implements Listener {
             return;
         }
         if (slot == Nav.PREV) {
-            menu.reopen(player, menu.page() - 1);
+            later(() -> menu.reopen(player, menu.page() - 1));
             return;
         }
         if (slot == Nav.NEXT) {
-            menu.reopen(player, menu.page() + 1);
+            later(() -> menu.reopen(player, menu.page() + 1));
             return;
         }
         if (Nav.isTab(slot)) {
@@ -160,20 +161,7 @@ public final class MenuListener implements Listener {
         }
     }
 
-    // ------------------------------------------------------------ item detail
-
-    private void handleDetailClick(Player player, ItemDetailMenu menu, int slot) {
-        switch (slot) {
-            case ItemDetailMenu.SLOT_BUY -> plugin.exchange().openBuy(player, menu.template());
-            case ItemDetailMenu.SLOT_SELL -> plugin.exchange().openSell(player, menu.template());
-            case ItemDetailMenu.SLOT_BACK -> plugin.exchange().openMarket(player);
-            default -> {
-                // decorative
-            }
-        }
-    }
-
-    // -------------------------------------------------------------- sell pick
+    // ----------------------------------------------------------- sell picker
 
     private void handleSelectClick(Player player, InventoryClickEvent event, Inventory top) {
         if (event.getClickedInventory() == top) {
@@ -194,39 +182,23 @@ public final class MenuListener implements Listener {
     private void handleBuyClick(Player player, BuyMenu menu, int slot) {
         BuySession session = menu.session();
         switch (slot) {
-            case BuyMenu.SLOT_DEC_10 -> {
-                session.amount(Math.max(1, session.amount() - 10));
-                menu.open(player);
-            }
-            case BuyMenu.SLOT_DEC_1 -> {
-                session.amount(Math.max(1, session.amount() - 1));
-                menu.open(player);
-            }
-            case BuyMenu.SLOT_INC_1 -> {
-                session.amount(session.amount() + 1);
-                menu.open(player);
-            }
-            case BuyMenu.SLOT_INC_10 -> {
-                session.amount(session.amount() + 10);
-                menu.open(player);
-            }
-            case BuyMenu.SLOT_INC_64 -> {
-                session.amount(session.amount() + 64);
-                menu.open(player);
-            }
+            case BuyMenu.SLOT_DEC_10 -> refresh(player, menu, () -> session.amount(Math.max(1, session.amount() - 10)));
+            case BuyMenu.SLOT_DEC_1 -> refresh(player, menu, () -> session.amount(Math.max(1, session.amount() - 1)));
+            case BuyMenu.SLOT_INC_1 -> refresh(player, menu, () -> session.amount(session.amount() + 1));
+            case BuyMenu.SLOT_INC_10 -> refresh(player, menu, () -> session.amount(session.amount() + 10));
+            case BuyMenu.SLOT_INC_64 -> refresh(player, menu, () -> session.amount(session.amount() + 64));
             case BuyMenu.SLOT_TYPE_AMOUNT -> prompt(player, PromptType.BUY_QUANTITY,
                     "Type how many you want to buy (or 'cancel').");
             case BuyMenu.SLOT_SET_PRICE -> prompt(player, PromptType.BUY_PRICE,
                     "Type your max price per item (or 'cancel').");
-            case BuyMenu.SLOT_USE_MARKET -> {
+            case BuyMenu.SLOT_USE_MARKET -> refresh(player, menu, () -> {
                 MarketSummary summary = summary(session.label());
                 if (summary != null && summary.hasAsk()) {
                     session.maxPricePerItem(summary.lowestAsk());
                 } else {
                     player.sendMessage(msg("No sellers yet — set a price manually.", NamedTextColor.GRAY));
                 }
-                menu.open(player);
-            }
+            });
             case BuyMenu.SLOT_CONFIRM -> plugin.exchange().confirmBuy(player, session);
             case BuyMenu.SLOT_CANCEL -> {
                 plugin.input().clearBuy(player.getUniqueId());
@@ -243,31 +215,17 @@ public final class MenuListener implements Listener {
     private void handleSellClick(Player player, SellMenu menu, int slot) {
         SellSession session = menu.session();
         switch (slot) {
-            case SellMenu.SLOT_DEC_10 -> {
-                session.amount(Math.max(1, session.amount() - 10));
-                menu.open(player);
-            }
-            case SellMenu.SLOT_DEC_1 -> {
-                session.amount(Math.max(1, session.amount() - 1));
-                menu.open(player);
-            }
-            case SellMenu.SLOT_INC_1 -> {
-                session.amount(session.amount() + 1);
-                menu.open(player);
-            }
-            case SellMenu.SLOT_INC_10 -> {
-                session.amount(session.amount() + 10);
-                menu.open(player);
-            }
-            case SellMenu.SLOT_ALL -> {
-                session.amount(Math.max(1, Items.count(player, session.template())));
-                menu.open(player);
-            }
+            case SellMenu.SLOT_DEC_10 -> refresh(player, menu, () -> session.amount(Math.max(1, session.amount() - 10)));
+            case SellMenu.SLOT_DEC_1 -> refresh(player, menu, () -> session.amount(Math.max(1, session.amount() - 1)));
+            case SellMenu.SLOT_INC_1 -> refresh(player, menu, () -> session.amount(session.amount() + 1));
+            case SellMenu.SLOT_INC_10 -> refresh(player, menu, () -> session.amount(session.amount() + 10));
+            case SellMenu.SLOT_ALL -> refresh(player, menu, () ->
+                    session.amount(Math.max(1, Items.count(player, session.template()))));
             case SellMenu.SLOT_TYPE_AMOUNT -> prompt(player, PromptType.SELL_QUANTITY,
                     "Type how many you want to sell (or 'cancel').");
             case SellMenu.SLOT_SET_PRICE -> prompt(player, PromptType.SELL_PRICE,
                     "Type your price per item (or 'cancel').");
-            case SellMenu.SLOT_USE_MARKET -> {
+            case SellMenu.SLOT_USE_MARKET -> refresh(player, menu, () -> {
                 MarketSummary summary = summary(session.label());
                 if (summary != null && summary.hasBid()) {
                     session.pricePerItem(summary.highestBid());
@@ -276,8 +234,7 @@ public final class MenuListener implements Listener {
                 } else {
                     player.sendMessage(msg("No market data yet — set a price manually.", NamedTextColor.GRAY));
                 }
-                menu.open(player);
-            }
+            });
             case SellMenu.SLOT_CONFIRM -> plugin.exchange().confirmSell(player, session);
             case SellMenu.SLOT_CANCEL -> {
                 plugin.input().clearSell(player.getUniqueId());
@@ -287,6 +244,16 @@ public final class MenuListener implements Listener {
                 // decorative
             }
         }
+    }
+
+    private void refresh(Player player, BuyMenu menu, Runnable mutate) {
+        mutate.run();
+        later(() -> menu.open(player));
+    }
+
+    private void refresh(Player player, SellMenu menu, Runnable mutate) {
+        mutate.run();
+        later(() -> menu.open(player));
     }
 
     private void prompt(Player player, PromptType type, String message) {

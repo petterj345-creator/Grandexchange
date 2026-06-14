@@ -38,34 +38,34 @@ Everything is reachable from the GUI tabs — the commands are just shortcuts.
 
 ## How it works
 
-The GUI has four tabs along the bottom: **Market / Prices**, **Sell an item**,
-**My offers**, and **Collection box**.
+The Buy and Sell windows are fully separate. The GUI has four tabs along the bottom:
+**Buy / Prices**, **Sell window**, **My offers**, and **Collection box**.
 
-### Prices
-The **Market** tab lists every item on the exchange with its **lowest sell price**
+### Buy window (and price list)
+The **Buy / Prices** tab lists every item on the exchange with its **lowest sell price**
 (what you'd pay to buy) and **highest buy offer** (what you'd get for selling), plus the
-quantities available/wanted. Click an item to buy or sell it.
+quantities available/wanted — your price viewer.
 
-### Buying
-1. Click an item → **Place a buy offer**.
-2. Set the **quantity** (buttons or "type amount") and your **max price each** (chat),
-   or click **Match market price**.
-3. **Confirm** — `quantity × max price` is reserved from your balance.
-4. The offer instantly fills against any sellers at or below your max (you pay *their*
-   price and are refunded the difference). Anything unfilled keeps resting until more
-   sellers appear. Filled items land in your **collection box**.
+To buy: click an item → set the **quantity** (buttons or "type amount") and your **max
+price each** (chat, or **Match market price**) → **Confirm**. `quantity × max price` is
+reserved from your balance, then:
 
-### Selling
-1. **Sell an item** tab → click an item in **your own inventory** to choose it
-   (or click **Sell this item** from the price screen).
-2. Set the **quantity** and **price each**, then **Confirm**. The items are escrowed.
-3. The offer instantly fills against any buy offers at or above your price; the rest
-   rests and is buyable. Your coins land in your **collection box**.
+- It **instantly fills** against any sellers at your price **or lower** — you pay *their*
+  price (refunded the difference) and the items go **straight into your inventory**.
+- Anything unfilled keeps **resting**, and fills automatically as new sellers appear
+  (those later items go to your **collection box**, since you may be offline).
+
+### Sell window
+The **Sell window** tab shows the picker: click an item in **your own inventory** to
+choose it, then set the **quantity** and **price each** and **Confirm**. The items are
+escrowed and the offer instantly fills against any buy offers at or above your price
+(coins **paid to your balance** immediately); the rest rests and stays buyable.
 
 ### Collection box
-Filled items and coins wait in the **Collection** tab. Click an entry to take it out, or
-**Collect everything**. (Cancelling an offer from **My offers** returns its remainder —
-items or reserved coins — to you immediately.)
+Items/coins from fills that happened while your offer was resting wait in the
+**Collection** tab — click an entry to take it out, or **Collect everything**.
+Cancelling an offer from **My offers** returns its remainder (items, or reserved coins)
+to you immediately.
 
 ### Config (`plugins/Grandexchange/config.yml`)
 

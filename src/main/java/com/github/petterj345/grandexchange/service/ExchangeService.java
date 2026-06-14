@@ -4,7 +4,6 @@ import com.github.petterj345.grandexchange.Grandexchange;
 import com.github.petterj345.grandexchange.engine.MatchResult;
 import com.github.petterj345.grandexchange.gui.BuyMenu;
 import com.github.petterj345.grandexchange.gui.CollectionMenu;
-import com.github.petterj345.grandexchange.gui.ItemDetailMenu;
 import com.github.petterj345.grandexchange.gui.MarketMenu;
 import com.github.petterj345.grandexchange.gui.MyOffersMenu;
 import com.github.petterj345.grandexchange.gui.SellMenu;
@@ -21,10 +20,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
- * Central orchestration for every exchange screen and action. The /ge command, GUI tabs,
- * and Citizens NPC all route through here so the whole exchange is usable from the GUI alone.
+ * Central orchestration for every exchange screen and action. The Buy window (market /
+ * prices) and Sell window (inventory picker) are kept fully separate so their sessions
+ * never overlap. Every screen transition is deferred by one tick because opening an
+ * inventory inside an InventoryClickEvent causes client desync ("ghost item") glitches.
  */
 public final class ExchangeService {
 
@@ -34,44 +36,55 @@ public final class ExchangeService {
         this.plugin = plugin;
     }
 
-    // ---------------------------------------------------------------- screens
-
-    public void openMarket(Player player) {
-        try {
-            List<MarketSummary> summaries = plugin.database().marketSummaries();
-            new MarketMenu(plugin, summaries, 0).open(player);
-        } catch (Exception e) {
-            error(player, e);
-        }
+    private void later(Runnable runnable) {
+        plugin.getServer().getScheduler().runTask(plugin, runnable);
     }
 
-    public void openItemDetail(Player player, ItemStack template) {
-        new ItemDetailMenu(plugin, template).open(player);
+    // ---------------------------------------------------------------- screens
+
+    /** The Buy window: the market / price list. Clicking an item starts a buy offer. */
+    public void openMarket(Player player) {
+        clearSessions(player.getUniqueId());
+        later(() -> {
+            try {
+                new MarketMenu(plugin, plugin.database().marketSummaries(), 0).open(player);
+            } catch (Exception e) {
+                error(player, e);
+            }
+        });
     }
 
     public void openMyOffers(Player player) {
-        try {
-            List<Offer> offers = plugin.database().offersByOwner(player.getUniqueId());
-            new MyOffersMenu(plugin, offers, 0).open(player);
-        } catch (Exception e) {
-            error(player, e);
-        }
+        plugin.input().clearPrompt(player.getUniqueId());
+        later(() -> {
+            try {
+                List<Offer> offers = plugin.database().offersByOwner(player.getUniqueId());
+                new MyOffersMenu(plugin, offers, 0).open(player);
+            } catch (Exception e) {
+                error(player, e);
+            }
+        });
     }
 
     public void openCollection(Player player) {
-        try {
-            List<CollectionEntry> entries = plugin.database().collectionByOwner(player.getUniqueId());
-            new CollectionMenu(plugin, entries, 0).open(player);
-        } catch (Exception e) {
-            error(player, e);
-        }
+        plugin.input().clearPrompt(player.getUniqueId());
+        later(() -> {
+            try {
+                List<CollectionEntry> entries = plugin.database().collectionByOwner(player.getUniqueId());
+                new CollectionMenu(plugin, entries, 0).open(player);
+            } catch (Exception e) {
+                error(player, e);
+            }
+        });
     }
 
+    /** The Sell window entry: pick an item from your own inventory. */
     public void openSellSelect(Player player) {
-        new SellSelectMenu(plugin).open(player);
+        clearSessions(player.getUniqueId());
+        later(() -> new SellSelectMenu(plugin).open(player));
     }
 
-    // ------------------------------------------------------------- buy / sell
+    // ------------------------------------------------------------- buy window
 
     public void openBuy(Player player, ItemStack source) {
         ItemStack template = source.clone();
@@ -82,29 +95,11 @@ public final class ExchangeService {
             defaultPrice = summary.lowestAsk();
         }
         BuySession session = new BuySession(template, 1, defaultPrice);
+        // Entering the buy flow clears any half-finished sell flow.
+        plugin.input().clearPrompt(player.getUniqueId());
+        plugin.input().clearSell(player.getUniqueId());
         plugin.input().setBuy(player.getUniqueId(), session);
-        new BuyMenu(plugin, session).open(player);
-    }
-
-    public void openSell(Player player, ItemStack source) {
-        ItemStack template = source.clone();
-        template.setAmount(1);
-        int available = Items.count(player, template);
-        if (available <= 0) {
-            player.sendMessage(msg("You need the item in your inventory to sell it.", NamedTextColor.RED));
-            return;
-        }
-        double defaultPrice = 0;
-        MarketSummary summary = summary(template.getType().name());
-        if (summary != null && summary.hasBid()) {
-            defaultPrice = summary.highestBid();
-        } else if (summary != null && summary.hasAsk()) {
-            defaultPrice = summary.lowestAsk();
-        }
-        int startAmount = Math.max(1, Math.min(source.getAmount(), available));
-        SellSession session = new SellSession(template, startAmount, defaultPrice);
-        plugin.input().setSell(player.getUniqueId(), session);
-        new SellMenu(plugin, session).open(player);
+        later(() -> new BuyMenu(plugin, session).open(player));
     }
 
     public void confirmBuy(Player player, BuySession session) {
@@ -129,19 +124,45 @@ public final class ExchangeService {
 
         String item = session.template().getType().name();
         if (result.filled() > 0 && result.resting() > 0) {
-            player.sendMessage(msg("Bought " + result.filled() + "x " + item + " now for "
-                    + plugin.economy().format(result.coins()) + " (in your collection box). "
+            player.sendMessage(msg("Bought " + result.filled() + "x " + item + " for "
+                    + plugin.economy().format(result.coins()) + " (added to your inventory). "
                     + result.resting() + " still wanted at your price.", NamedTextColor.GREEN));
         } else if (result.filled() > 0) {
             player.sendMessage(msg("Bought " + result.filled() + "x " + item + " for "
-                    + plugin.economy().format(result.coins()) + " — check your collection box.",
+                    + plugin.economy().format(result.coins()) + " — added to your inventory.",
                     NamedTextColor.GREEN));
         } else {
             player.sendMessage(msg("Buy offer placed: " + result.resting() + "x " + item
                     + " wanted at up to " + plugin.economy().format(session.maxPricePerItem())
-                    + " each. You'll receive them as sellers appear.", NamedTextColor.YELLOW));
+                    + " each. You'll receive them automatically as sellers appear.", NamedTextColor.YELLOW));
         }
         openMarket(player);
+    }
+
+    // ------------------------------------------------------------ sell window
+
+    public void openSell(Player player, ItemStack source) {
+        ItemStack template = source.clone();
+        template.setAmount(1);
+        int available = Items.count(player, template);
+        if (available <= 0) {
+            player.sendMessage(msg("You need the item in your inventory to sell it.", NamedTextColor.RED));
+            return;
+        }
+        double defaultPrice = 0;
+        MarketSummary summary = summary(template.getType().name());
+        if (summary != null && summary.hasBid()) {
+            defaultPrice = summary.highestBid();
+        } else if (summary != null && summary.hasAsk()) {
+            defaultPrice = summary.lowestAsk();
+        }
+        int startAmount = Math.max(1, Math.min(source.getAmount(), available));
+        SellSession session = new SellSession(template, startAmount, defaultPrice);
+        // Entering the sell flow clears any half-finished buy flow.
+        plugin.input().clearPrompt(player.getUniqueId());
+        plugin.input().clearBuy(player.getUniqueId());
+        plugin.input().setSell(player.getUniqueId(), session);
+        later(() -> new SellMenu(plugin, session).open(player));
     }
 
     public void confirmSell(Player player, SellSession session) {
@@ -168,12 +189,12 @@ public final class ExchangeService {
 
         String item = session.template().getType().name();
         if (result.filled() > 0 && result.resting() > 0) {
-            player.sendMessage(msg("Sold " + result.filled() + "x " + item + " now for "
-                    + plugin.economy().format(result.coins()) + " (in your collection box). "
+            player.sendMessage(msg("Sold " + result.filled() + "x " + item + " for "
+                    + plugin.economy().format(result.coins()) + " (paid to your balance). "
                     + result.resting() + " still listed.", NamedTextColor.GREEN));
         } else if (result.filled() > 0) {
             player.sendMessage(msg("Sold " + result.filled() + "x " + item + " for "
-                    + plugin.economy().format(result.coins()) + " — check your collection box.",
+                    + plugin.economy().format(result.coins()) + " — paid to your balance.",
                     NamedTextColor.GREEN));
         } else {
             player.sendMessage(msg("Sell offer placed: " + result.resting() + "x " + item
@@ -242,6 +263,12 @@ public final class ExchangeService {
     }
 
     // ------------------------------------------------------------------ utils
+
+    private void clearSessions(UUID player) {
+        plugin.input().clearPrompt(player);
+        plugin.input().clearBuy(player);
+        plugin.input().clearSell(player);
+    }
 
     private void deliver(Player player, CollectionEntry entry) {
         if (entry.isCoins()) {

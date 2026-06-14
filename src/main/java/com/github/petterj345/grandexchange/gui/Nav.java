@@ -31,8 +31,8 @@ public final class Nav {
         if (hasNext) {
             inv.setItem(NEXT, Gui.button(Material.ARROW, "Next page", null));
         }
-        inv.setItem(MARKET, Gui.button(Material.EMERALD, "Market / Prices", null));
-        inv.setItem(SELL, Gui.button(Material.HOPPER, "Sell an item", null));
+        inv.setItem(MARKET, Gui.button(Material.EMERALD, "Buy / Prices", null));
+        inv.setItem(SELL, Gui.button(Material.HOPPER, "Sell window", null));
         inv.setItem(MY_OFFERS, Gui.button(Material.WRITABLE_BOOK, "My offers", null));
         inv.setItem(COLLECTION, Gui.button(Material.ENDER_CHEST, "Collection box", null));
     }

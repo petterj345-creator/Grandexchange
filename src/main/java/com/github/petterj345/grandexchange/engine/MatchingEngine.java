@@ -66,10 +66,14 @@ public final class MatchingEngine {
                 int m = Math.min(remaining, sell.quantity());
                 double exec = sell.pricePerItem();
 
-                db().addCollectionCoins(sell.ownerUuid(), m * exec, now);     // seller is paid
-                db().addCollectionItem(buyer.getUniqueId(), template, m, now); // buyer receives items
+                // Resting seller is paid via their collection box.
+                db().addCollectionCoins(sell.ownerUuid(), m * exec, now);
+                // Active buyer gets the items (and any price-improvement refund) right now.
+                Items.give(buyer, template, m);
                 double refund = m * (maxPrice - exec);
-                db().addCollectionCoins(buyer.getUniqueId(), refund, now);     // price-improvement refund
+                if (refund > 0) {
+                    plugin.economy().deposit(buyer, refund);
+                }
 
                 int sellRemaining = sell.quantity() - m;
                 if (sellRemaining <= 0) {
@@ -126,10 +130,12 @@ public final class MatchingEngine {
                 int m = Math.min(remaining, buy.quantity());
                 double exec = price; // the seller's asking price
 
-                db().addCollectionCoins(seller.getUniqueId(), m * exec, now);   // seller is paid
-                db().addCollectionItem(buy.ownerUuid(), template, m, now);       // resting buyer receives items
+                // Active seller is paid right now.
+                plugin.economy().deposit(seller, m * exec);
+                // Resting buyer receives items (and refund) via their collection box.
+                db().addCollectionItem(buy.ownerUuid(), template, m, now);
                 double refund = m * (buy.pricePerItem() - exec);
-                db().addCollectionCoins(buy.ownerUuid(), refund, now);           // price-improvement refund
+                db().addCollectionCoins(buy.ownerUuid(), refund, now);
 
                 int buyRemaining = buy.quantity() - m;
                 double buyEscrow = Math.max(0, buy.escrowCoins() - m * buy.pricePerItem());

@@ -67,7 +67,7 @@ public final class MarketMenu implements InventoryHolder {
 
     private void build() {
         inventory = Bukkit.createInventory(this, SIZE,
-                Component.text("Grand Exchange — Prices (" + (page + 1) + "/" + totalPages() + ")"));
+                Component.text("Buy / Prices (" + (page + 1) + "/" + totalPages() + ")"));
         slotToSummary.clear();
 
         int start = page * PER_PAGE;
@@ -111,7 +111,7 @@ public final class MarketMenu implements InventoryHolder {
             lore.add(Gui.line("No buyers right now", NamedTextColor.GRAY));
         }
         lore.add(Component.empty());
-        lore.add(Gui.line("Click to buy or sell", NamedTextColor.AQUA));
+        lore.add(Gui.line("Click to place a buy offer", NamedTextColor.AQUA));
         return Gui.decorate(icon, lore);
     }
 }
