@@ -2,6 +2,7 @@ package com.github.petterj345.grandexchange;
 
 import com.github.petterj345.grandexchange.command.ExchangeCommand;
 import com.github.petterj345.grandexchange.economy.EconomyHook;
+import com.github.petterj345.grandexchange.engine.MatchingEngine;
 import com.github.petterj345.grandexchange.input.InputManager;
 import com.github.petterj345.grandexchange.listener.ChatListener;
 import com.github.petterj345.grandexchange.listener.MenuListener;
@@ -18,6 +19,7 @@ public final class Grandexchange extends JavaPlugin {
     private Database database;
     private EconomyHook economy;
     private InputManager input;
+    private MatchingEngine engine;
     private ExchangeService exchange;
 
     @Override
@@ -41,6 +43,7 @@ public final class Grandexchange extends JavaPlugin {
         }
 
         input = new InputManager();
+        engine = new MatchingEngine(this);
         exchange = new ExchangeService(this);
 
         getServer().getPluginManager().registerEvents(new MenuListener(this), this);
@@ -85,6 +88,10 @@ public final class Grandexchange extends JavaPlugin {
 
     public InputManager input() {
         return input;
+    }
+
+    public MatchingEngine engine() {
+        return engine;
     }
 
     public ExchangeService exchange() {

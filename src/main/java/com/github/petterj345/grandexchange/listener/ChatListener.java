@@ -1,24 +1,24 @@
 package com.github.petterj345.grandexchange.listener;
 
 import com.github.petterj345.grandexchange.Grandexchange;
+import com.github.petterj345.grandexchange.gui.BuyMenu;
 import com.github.petterj345.grandexchange.gui.SellMenu;
+import com.github.petterj345.grandexchange.input.BuySession;
 import com.github.petterj345.grandexchange.input.Prompt;
 import com.github.petterj345.grandexchange.input.SellSession;
-import com.github.petterj345.grandexchange.storage.Listing;
 import com.github.petterj345.grandexchange.util.Items;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 /**
- * Captures a player's next chat line when they're answering a prompt
- * (buy quantity, sell quantity, or sell price) and runs the action on the main thread.
+ * Captures a player's next chat line when they're answering a quantity/price prompt
+ * for a buy or sell offer, then updates the session and reopens the menu (main thread).
  */
 public final class ChatListener implements Listener {
 
@@ -44,134 +44,102 @@ public final class ChatListener implements Listener {
 
     private void handle(Player player, Prompt prompt, String message) {
         switch (prompt.type()) {
-            case BUY_QUANTITY -> handleBuy(player, prompt.listingId(), message);
-            case SELL_QUANTITY -> handleSellQuantity(player, message);
-            case SELL_PRICE -> handleSellPrice(player, message);
+            case BUY_QUANTITY -> buyQuantity(player, message);
+            case BUY_PRICE -> buyPrice(player, message);
+            case SELL_QUANTITY -> sellQuantity(player, message);
+            case SELL_PRICE -> sellPrice(player, message);
         }
     }
 
-    private void handleBuy(Player player, long listingId, String message) {
-        if (message.equalsIgnoreCase("cancel")) {
-            player.sendMessage(msg("Purchase cancelled.", NamedTextColor.GRAY));
+    // -------------------------------------------------------------------- buy
+
+    private void buyQuantity(Player player, String message) {
+        BuySession session = plugin.input().buy(player.getUniqueId());
+        if (session == null) {
             return;
         }
-        int amount;
-        try {
-            amount = Integer.parseInt(message);
-        } catch (NumberFormatException e) {
-            player.sendMessage(msg("That wasn't a whole number. Purchase cancelled.", NamedTextColor.RED));
-            return;
+        if (!message.equalsIgnoreCase("cancel")) {
+            Integer amount = parseInt(player, message);
+            if (amount != null) {
+                session.amount(Math.max(1, amount));
+            }
         }
-        if (amount <= 0) {
-            player.sendMessage(msg("Amount must be positive. Purchase cancelled.", NamedTextColor.RED));
-            return;
-        }
-        try {
-            Listing listing = plugin.database().byId(listingId);
-            if (listing == null || listing.quantity() <= 0) {
-                player.sendMessage(msg("That listing is no longer available.", NamedTextColor.RED));
-                return;
-            }
-            if (amount > listing.quantity()) {
-                player.sendMessage(msg("Only " + listing.quantity() + " available. Purchase cancelled.",
-                        NamedTextColor.RED));
-                return;
-            }
-            double total = amount * listing.pricePerItem();
-            if (!plugin.economy().has(player, total)) {
-                player.sendMessage(msg("You can't afford that — it costs "
-                        + plugin.economy().format(total) + ".", NamedTextColor.RED));
-                return;
-            }
-
-            OfflinePlayer seller = plugin.getServer().getOfflinePlayer(listing.sellerUuid());
-            double tax = total * (plugin.taxPercent() / 100.0);
-            double sellerGets = total - tax;
-
-            if (!plugin.economy().withdraw(player, total)) {
-                player.sendMessage(msg("Payment failed. Purchase cancelled.", NamedTextColor.RED));
-                return;
-            }
-            plugin.economy().deposit(seller, sellerGets);
-
-            int newQuantity = listing.quantity() - amount;
-            if (newQuantity <= 0) {
-                plugin.database().delete(listing.id());
-            } else {
-                plugin.database().updateQuantity(listing.id(), newQuantity);
-            }
-
-            Items.give(player, listing.item(), amount);
-            String itemName = listing.item().getType().name();
-            player.sendMessage(msg("Bought " + amount + "x " + itemName + " for "
-                    + plugin.economy().format(total) + ".", NamedTextColor.GREEN));
-
-            Player onlineSeller = seller.getPlayer();
-            if (onlineSeller != null) {
-                onlineSeller.sendMessage(msg(player.getName() + " bought " + amount + "x " + itemName
-                        + " for " + plugin.economy().format(sellerGets) + ".", NamedTextColor.GREEN));
-            }
-
-            // Drop the player back into the browse hub to keep shopping.
-            plugin.exchange().openBrowse(player);
-        } catch (Exception e) {
-            player.sendMessage(msg("Something went wrong: " + e.getMessage(), NamedTextColor.RED));
-        }
+        new BuyMenu(plugin, session).open(player);
     }
 
-    private void handleSellQuantity(Player player, String message) {
+    private void buyPrice(Player player, String message) {
+        BuySession session = plugin.input().buy(player.getUniqueId());
+        if (session == null) {
+            return;
+        }
+        if (!message.equalsIgnoreCase("cancel")) {
+            Double price = parsePrice(player, message);
+            if (price != null) {
+                session.maxPricePerItem(price);
+            }
+        }
+        new BuyMenu(plugin, session).open(player);
+    }
+
+    // ------------------------------------------------------------------- sell
+
+    private void sellQuantity(Player player, String message) {
         SellSession session = plugin.input().sell(player.getUniqueId());
         if (session == null) {
             return;
         }
-        if (message.equalsIgnoreCase("cancel")) {
-            new SellMenu(plugin, session).open(player);
+        if (!message.equalsIgnoreCase("cancel")) {
+            Integer amount = parseInt(player, message);
+            if (amount != null) {
+                int available = Items.count(player, session.template());
+                int wanted = Math.max(1, amount);
+                if (available > 0 && wanted > available) {
+                    wanted = available;
+                    player.sendMessage(msg("You only have " + available + " — using that.", NamedTextColor.GRAY));
+                }
+                session.amount(wanted);
+            }
+        }
+        new SellMenu(plugin, session).open(player);
+    }
+
+    private void sellPrice(Player player, String message) {
+        SellSession session = plugin.input().sell(player.getUniqueId());
+        if (session == null) {
             return;
         }
-        int amount;
+        if (!message.equalsIgnoreCase("cancel")) {
+            Double price = parsePrice(player, message);
+            if (price != null) {
+                session.pricePerItem(price);
+            }
+        }
+        new SellMenu(plugin, session).open(player);
+    }
+
+    // ------------------------------------------------------------------ parse
+
+    private Integer parseInt(Player player, String message) {
         try {
-            amount = Integer.parseInt(message);
+            return Integer.parseInt(message);
         } catch (NumberFormatException e) {
             player.sendMessage(msg("That wasn't a whole number.", NamedTextColor.RED));
-            new SellMenu(plugin, session).open(player);
-            return;
+            return null;
         }
-        int available = Items.count(player, session.template());
-        if (amount < 1) {
-            amount = 1;
-        }
-        if (available > 0 && amount > available) {
-            amount = available;
-            player.sendMessage(msg("You only have " + available + " — using that.", NamedTextColor.GRAY));
-        }
-        session.amount(amount);
-        new SellMenu(plugin, session).open(player);
     }
 
-    private void handleSellPrice(Player player, String message) {
-        SellSession session = plugin.input().sell(player.getUniqueId());
-        if (session == null) {
-            return;
-        }
-        if (message.equalsIgnoreCase("cancel")) {
-            new SellMenu(plugin, session).open(player);
-            return;
-        }
-        double price;
+    private Double parsePrice(Player player, String message) {
         try {
-            price = Double.parseDouble(message);
+            double price = Double.parseDouble(message);
+            if (price <= 0) {
+                player.sendMessage(msg("Price must be positive.", NamedTextColor.RED));
+                return null;
+            }
+            return price;
         } catch (NumberFormatException e) {
             player.sendMessage(msg("That wasn't a valid number.", NamedTextColor.RED));
-            new SellMenu(plugin, session).open(player);
-            return;
+            return null;
         }
-        if (price <= 0) {
-            player.sendMessage(msg("Price must be positive.", NamedTextColor.RED));
-            new SellMenu(plugin, session).open(player);
-            return;
-        }
-        session.pricePerItem(price);
-        new SellMenu(plugin, session).open(player);
     }
 
     private static Component msg(String text, NamedTextColor color) {

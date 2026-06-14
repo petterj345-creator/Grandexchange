@@ -3,8 +3,8 @@ package com.github.petterj345.grandexchange.input;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * Mutable state for a player composing a sell listing in the sell GUI.
- * {@code template} is a single representative item (amount 1).
+ * Mutable state for a player composing a sell offer. {@code template} is a single
+ * representative item (amount 1).
  */
 public final class SellSession {
 

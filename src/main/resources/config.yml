@@ -1,6 +1,2 @@
-# Percentage fee taken from each sale (0 = no fee).
-# The buyer always pays the full price; the seller receives price minus this percentage.
-tax-percent: 0.0
-
-# Maximum number of active listings a single player can have at once.
+# Maximum number of active offers (buy + sell) a single player can have at once.
 max-listings-per-player: 20

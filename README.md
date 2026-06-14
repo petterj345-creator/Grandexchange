@@ -1,10 +1,12 @@
 # Grandexchange
 
-A RuneScape-style **Grand Exchange** marketplace plugin for **Minecraft Paper 1.21.11** (Java 21).
+A RuneScape-style **Grand Exchange** for **Minecraft Paper 1.21.11** (Java 21).
 
-Players list items for sale, browse what others are selling, and buy any quantity —
-typing the amount in chat. Listed items are escrowed (held by the plugin) until sold
-or cancelled, so nothing is duplicated.
+It's a real order book: players place **buy offers** and **sell offers** that match
+automatically. Money and items are escrowed up front (coins when you place a buy, items
+when you place a sell), trades execute at the **seller's price** — a buyer who offered
+more is refunded the difference — and filled items/coins wait in a **collection box**.
+Offers fill partially and the remainder keeps resting, just like the real GE.
 
 ## Requirements
 
@@ -20,50 +22,55 @@ If Citizens is installed, you can make any NPC open the Grand Exchange when righ
 1. Select the NPC: `/npc select` (look at it, or use `/npc select <id>`)
 2. Add the trait: `/trait grandexchange`
 
-Right-clicking that NPC now opens the browse-and-buy GUI. The trait is saved with the
+Right-clicking that NPC now opens the exchange GUI. The trait is saved with the
 NPC, so it survives restarts. Remove it with `/trait remove grandexchange`.
 
 ## Commands
 
+Everything is reachable from the GUI tabs — the commands are just shortcuts.
+
 | Command | Description |
 |---------|-------------|
-| `/ge` (or `/grandexchange`, `/gx`) | Browse all listings and buy |
-| `/ge sell` | Open the sell menu for the item in your hand |
-| `/ge mine` | View and cancel your own listings (items are returned) |
-| `/ge help` | Show command help |
+| `/ge` (or `/grandexchange`, `/gx`) | Open the market / price list |
+| `/ge sell` | Start selling the item in your hand |
+| `/ge offers` | View and cancel your buy/sell offers |
+| `/ge collect` | Open your collection box |
 
 ## How it works
 
-Everything is done from the GUI. Open it with `/ge` or by right-clicking a Grand
-Exchange NPC. The bottom row has three tabs — **Browse**, **Sell an item**, and
-**My listings** — so you never need a command.
+The GUI has four tabs along the bottom: **Market / Prices**, **Sell an item**,
+**My offers**, and **Collection box**.
 
-### Selling
-1. Open the GUI and click the **Sell an item** tab.
-2. Click any item in **your own inventory** (shown below the menu) to choose it.
-3. In the sell menu, set the **quantity** with the `+/-` buttons, "Sell all", or
-   "Type amount in chat".
-4. Set your **price per item** (type in chat), or click **Use market price** to match
-   the current average.
-5. The menu shows the **market price** — the average and lowest price other players have
-   currently listed that same item for.
-6. Click **Confirm**. The items are taken from your inventory and listed.
+### Prices
+The **Market** tab lists every item on the exchange with its **lowest sell price**
+(what you'd pay to buy) and **highest buy offer** (what you'd get for selling), plus the
+quantities available/wanted. Click an item to buy or sell it.
 
 ### Buying
-1. Open the GUI (Browse tab) and click an item.
-2. Type **how many** you want in chat.
-3. You pay from your Vault balance; the seller is paid (minus the optional sale fee) and
-   you receive the items.
+1. Click an item → **Place a buy offer**.
+2. Set the **quantity** (buttons or "type amount") and your **max price each** (chat),
+   or click **Match market price**.
+3. **Confirm** — `quantity × max price` is reserved from your balance.
+4. The offer instantly fills against any sellers at or below your max (you pay *their*
+   price and are refunded the difference). Anything unfilled keeps resting until more
+   sellers appear. Filled items land in your **collection box**.
 
-### Managing your listings
-Click the **My listings** tab, then click any of your listings to cancel it and get the
-remaining items back.
+### Selling
+1. **Sell an item** tab → click an item in **your own inventory** to choose it
+   (or click **Sell this item** from the price screen).
+2. Set the **quantity** and **price each**, then **Confirm**. The items are escrowed.
+3. The offer instantly fills against any buy offers at or above your price; the rest
+   rests and is buyable. Your coins land in your **collection box**.
+
+### Collection box
+Filled items and coins wait in the **Collection** tab. Click an entry to take it out, or
+**Collect everything**. (Cancelling an offer from **My offers** returns its remainder —
+items or reserved coins — to you immediately.)
 
 ### Config (`plugins/Grandexchange/config.yml`)
 
 ```yaml
-tax-percent: 0.0            # % fee taken from each sale (seller receives price minus this)
-max-listings-per-player: 20 # max simultaneous active listings per player
+max-listings-per-player: 20 # max simultaneous active offers per player
 ```
 
 ## Building
@@ -96,11 +103,14 @@ src/main/resources/plugin.yml            Plugin metadata, command, sqlite librar
 src/main/resources/config.yml            Default config
 src/main/java/.../Grandexchange.java     Plugin bootstrap
                   economy/EconomyHook    Vault wrapper
-                  storage/               SQLite database + Listing/MarketStats models
-                  input/                 Chat-prompt + sell-session state
-                  gui/                   Browse menu + sell menu
+                  storage/               SQLite DB + Offer/CollectionEntry/MarketSummary
+                  engine/                MatchingEngine (escrow, matching, collection box)
+                  input/                 Chat prompts + buy/sell session state
+                  gui/                   Market, item detail, buy/sell, my offers, collection
+                  service/ExchangeService  Opens screens + runs place/cancel/collect
                   listener/              Inventory clicks + chat capture
+                  citizens/              Optional Citizens NPC trait + listener
                   command/               /ge command
-                  util/Items             Inventory count/remove/give helpers
+                  util/                  Items + Gui helpers
 .github/workflows/build.yml              GitHub Actions build
 ```

@@ -31,6 +31,10 @@ public final class EconomyHook {
         return economy != null;
     }
 
+    public double balanceOf(OfflinePlayer player) {
+        return economy.getBalance(player);
+    }
+
     public boolean has(OfflinePlayer player, double amount) {
         return economy.has(player, amount);
     }
