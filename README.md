@@ -34,21 +34,30 @@ NPC, so it survives restarts. Remove it with `/trait remove grandexchange`.
 
 ## How it works
 
+Everything is done from the GUI. Open it with `/ge` or by right-clicking a Grand
+Exchange NPC. The bottom row has three tabs — **Browse**, **Sell an item**, and
+**My listings** — so you never need a command.
+
 ### Selling
-1. Hold the item you want to sell and run `/ge sell`.
-2. In the sell menu, set the **quantity** with the `+/-` buttons, "Sell all", or
+1. Open the GUI and click the **Sell an item** tab.
+2. Click any item in **your own inventory** (shown below the menu) to choose it.
+3. In the sell menu, set the **quantity** with the `+/-` buttons, "Sell all", or
    "Type amount in chat".
-3. Set your **price per item** (type in chat), or click **Use market price** to match
+4. Set your **price per item** (type in chat), or click **Use market price** to match
    the current average.
-4. The menu shows the **market price** — the average and lowest price other players have
+5. The menu shows the **market price** — the average and lowest price other players have
    currently listed that same item for.
-5. Click **Confirm**. The items are taken from your inventory and listed.
+6. Click **Confirm**. The items are taken from your inventory and listed.
 
 ### Buying
-1. Run `/ge` and click an item.
+1. Open the GUI (Browse tab) and click an item.
 2. Type **how many** you want in chat.
 3. You pay from your Vault balance; the seller is paid (minus the optional sale fee) and
    you receive the items.
+
+### Managing your listings
+Click the **My listings** tab, then click any of your listings to cancel it and get the
+remaining items back.
 
 ### Config (`plugins/Grandexchange/config.yml`)
 

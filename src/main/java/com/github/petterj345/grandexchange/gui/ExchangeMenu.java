@@ -31,7 +31,10 @@ public final class ExchangeMenu implements InventoryHolder {
     private static final int SIZE = 54;
     private static final int PER_PAGE = 45;
     public static final int SLOT_PREV = 45;
-    public static final int SLOT_INFO = 49;
+    public static final int SLOT_BROWSE_TAB = 47;
+    public static final int SLOT_SELL = 48;
+    public static final int SLOT_MINE_TAB = 49;
+    public static final int SLOT_INFO = 50;
     public static final int SLOT_NEXT = 53;
 
     private final Grandexchange plugin;
@@ -103,7 +106,20 @@ public final class ExchangeMenu implements InventoryHolder {
         if (page < totalPages() - 1) {
             inventory.setItem(SLOT_NEXT, nav(Material.ARROW, "Next page"));
         }
-        String info = mode == Mode.BROWSE ? "Click an item to buy" : "Click an item to cancel & reclaim";
+
+        // Navigation tabs (present on every page, in both modes)
+        inventory.setItem(SLOT_BROWSE_TAB, nav(Material.CHEST, "Browse listings"));
+        inventory.setItem(SLOT_SELL, nav(Material.EMERALD, "Sell an item"));
+        inventory.setItem(SLOT_MINE_TAB, nav(Material.WRITABLE_BOOK, "My listings"));
+
+        String info;
+        if (listings.isEmpty()) {
+            info = mode == Mode.BROWSE
+                    ? "No listings yet — click 'Sell an item' to add one"
+                    : "You have no active listings";
+        } else {
+            info = mode == Mode.BROWSE ? "Click an item to buy" : "Click an item to cancel & reclaim";
+        }
         inventory.setItem(SLOT_INFO, nav(Material.PAPER, info));
     }
 

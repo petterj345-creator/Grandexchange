@@ -3,6 +3,7 @@ package com.github.petterj345.grandexchange.listener;
 import com.github.petterj345.grandexchange.Grandexchange;
 import com.github.petterj345.grandexchange.gui.ExchangeMenu;
 import com.github.petterj345.grandexchange.gui.SellMenu;
+import com.github.petterj345.grandexchange.gui.SellSelectMenu;
 import com.github.petterj345.grandexchange.input.Prompt;
 import com.github.petterj345.grandexchange.input.SellSession;
 import com.github.petterj345.grandexchange.storage.Listing;
@@ -33,7 +34,8 @@ public final class MenuListener implements Listener {
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         InventoryHolder holder = event.getView().getTopInventory().getHolder();
-        if (holder instanceof ExchangeMenu || holder instanceof SellMenu) {
+        if (holder instanceof ExchangeMenu || holder instanceof SellMenu
+                || holder instanceof SellSelectMenu) {
             event.setCancelled(true);
         }
     }
@@ -42,19 +44,27 @@ public final class MenuListener implements Listener {
     public void onClick(InventoryClickEvent event) {
         Inventory top = event.getView().getTopInventory();
         InventoryHolder holder = top.getHolder();
-        if (!(holder instanceof ExchangeMenu) && !(holder instanceof SellMenu)) {
+        if (!(holder instanceof ExchangeMenu) && !(holder instanceof SellMenu)
+                && !(holder instanceof SellSelectMenu)) {
             return;
         }
 
+        // Every one of our menus is read-only; cancel before doing anything.
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        // Only react to clicks inside our own (top) inventory.
-        if (event.getClickedInventory() == null || event.getClickedInventory() != top) {
+
+        // The sell-picker reacts to clicks in the player's own (bottom) inventory.
+        if (holder instanceof SellSelectMenu select) {
+            handleSelectClick(player, select, event, top);
             return;
         }
 
+        // The other menus only react to clicks inside the top inventory.
+        if (event.getClickedInventory() == null || event.getClickedInventory() != top) {
+            return;
+        }
         if (holder instanceof ExchangeMenu menu) {
             handleExchangeClick(player, menu, event.getSlot());
         } else {
@@ -62,17 +72,49 @@ public final class MenuListener implements Listener {
         }
     }
 
+    private void handleSelectClick(Player player, SellSelectMenu menu, InventoryClickEvent event, Inventory top) {
+        if (event.getClickedInventory() == top) {
+            if (event.getSlot() == SellSelectMenu.SLOT_BACK) {
+                plugin.exchange().openBrowse(player);
+            }
+            return;
+        }
+        // Click in the player's own inventory: that's the item to sell.
+        org.bukkit.inventory.ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType().isAir()) {
+            return;
+        }
+        plugin.exchange().openSell(player, clicked);
+    }
+
     private void handleExchangeClick(Player player, ExchangeMenu menu, int slot) {
-        if (slot == ExchangeMenu.SLOT_PREV) {
-            menu.reopen(player, menu.page() - 1);
-            return;
-        }
-        if (slot == ExchangeMenu.SLOT_NEXT) {
-            menu.reopen(player, menu.page() + 1);
-            return;
-        }
-        if (slot == ExchangeMenu.SLOT_INFO) {
-            return;
+        switch (slot) {
+            case ExchangeMenu.SLOT_PREV -> {
+                menu.reopen(player, menu.page() - 1);
+                return;
+            }
+            case ExchangeMenu.SLOT_NEXT -> {
+                menu.reopen(player, menu.page() + 1);
+                return;
+            }
+            case ExchangeMenu.SLOT_BROWSE_TAB -> {
+                plugin.exchange().openBrowse(player);
+                return;
+            }
+            case ExchangeMenu.SLOT_SELL -> {
+                plugin.exchange().openSellSelect(player);
+                return;
+            }
+            case ExchangeMenu.SLOT_MINE_TAB -> {
+                plugin.exchange().openMine(player);
+                return;
+            }
+            case ExchangeMenu.SLOT_INFO -> {
+                return;
+            }
+            default -> {
+                // not a nav slot — fall through to listing handling
+            }
         }
         Long listingId = menu.listingAt(slot);
         if (listingId == null) {
@@ -102,9 +144,9 @@ public final class MenuListener implements Listener {
         int remaining = listing.quantity();
         plugin.database().delete(listing.id());
         Items.give(player, listing.item(), remaining);
-        player.closeInventory();
         player.sendMessage(msg("Listing cancelled. Returned " + remaining + "x "
                 + listing.item().getType().name() + ".", NamedTextColor.GREEN));
+        plugin.exchange().openMine(player);
     }
 
     private void startPurchase(Player player, Listing listing) {
@@ -160,8 +202,8 @@ public final class MenuListener implements Listener {
             case SellMenu.SLOT_CONFIRM -> confirmSell(player, session);
             case SellMenu.SLOT_CANCEL -> {
                 plugin.input().clearSell(player.getUniqueId());
-                player.closeInventory();
                 player.sendMessage(msg("Sell cancelled.", NamedTextColor.GRAY));
+                plugin.exchange().openBrowse(player);
             }
             default -> {
                 // ignore decorative / empty slots
@@ -208,10 +250,10 @@ public final class MenuListener implements Listener {
             Listing listing = plugin.database().insert(player.getUniqueId(), player.getName(),
                     session.template(), amount, session.pricePerItem(), System.currentTimeMillis());
             plugin.input().clearSell(player.getUniqueId());
-            player.closeInventory();
             player.sendMessage(msg("Listed " + amount + "x " + session.template().getType().name()
                     + " at " + plugin.economy().format(session.pricePerItem())
                     + " each. (listing #" + listing.id() + ")", NamedTextColor.GREEN));
+            plugin.exchange().openBrowse(player);
         } catch (Exception e) {
             player.sendMessage(msg("Failed to create listing: " + e.getMessage(), NamedTextColor.RED));
         }

@@ -111,6 +111,9 @@ public final class ChatListener implements Listener {
                 onlineSeller.sendMessage(msg(player.getName() + " bought " + amount + "x " + itemName
                         + " for " + plugin.economy().format(sellerGets) + ".", NamedTextColor.GREEN));
             }
+
+            // Drop the player back into the browse hub to keep shopping.
+            plugin.exchange().openBrowse(player);
         } catch (Exception e) {
             player.sendMessage(msg("Something went wrong: " + e.getMessage(), NamedTextColor.RED));
         }

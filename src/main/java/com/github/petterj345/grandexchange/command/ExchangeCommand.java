@@ -1,12 +1,6 @@
 package com.github.petterj345.grandexchange.command;
 
 import com.github.petterj345.grandexchange.Grandexchange;
-import com.github.petterj345.grandexchange.gui.ExchangeMenu;
-import com.github.petterj345.grandexchange.gui.SellMenu;
-import com.github.petterj345.grandexchange.input.SellSession;
-import com.github.petterj345.grandexchange.storage.Listing;
-import com.github.petterj345.grandexchange.storage.MarketStats;
-import com.github.petterj345.grandexchange.util.Items;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
@@ -19,6 +13,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Thin command layer over {@link com.github.petterj345.grandexchange.service.ExchangeService}.
+ * Everything is also reachable from the GUI tabs, so the command is just a convenience.
+ */
 public final class ExchangeCommand implements TabExecutor {
 
     private static final List<String> SUBCOMMANDS = List.of("browse", "sell", "mine", "help");
@@ -39,64 +37,32 @@ public final class ExchangeCommand implements TabExecutor {
         if (args.length == 0
                 || args[0].equalsIgnoreCase("browse")
                 || args[0].equalsIgnoreCase("open")) {
-            openBrowse(player);
+            plugin.exchange().openBrowse(player);
             return true;
         }
         switch (args[0].toLowerCase()) {
             case "sell" -> openSell(player);
-            case "mine" -> openMine(player);
+            case "mine" -> plugin.exchange().openMine(player);
             default -> sendHelp(player);
         }
         return true;
     }
 
-    private void openBrowse(Player player) {
-        plugin.exchange().openBrowse(player);
-    }
-
-    private void openMine(Player player) {
-        try {
-            List<Listing> listings = plugin.database().bySeller(player.getUniqueId());
-            if (listings.isEmpty()) {
-                player.sendMessage(msg("You have no active listings.", NamedTextColor.GRAY));
-                return;
-            }
-            new ExchangeMenu(plugin, ExchangeMenu.Mode.MINE, listings, 0).open(player);
-        } catch (Exception e) {
-            player.sendMessage(msg("Failed to open your listings: " + e.getMessage(), NamedTextColor.RED));
-        }
-    }
-
     private void openSell(Player player) {
+        // If they're holding something, sell that directly; otherwise let them pick in the GUI.
         ItemStack inHand = player.getInventory().getItemInMainHand();
         if (inHand.getType().isAir()) {
-            player.sendMessage(msg("Hold the item you want to sell, then run /ge sell.", NamedTextColor.RED));
-            return;
+            plugin.exchange().openSellSelect(player);
+        } else {
+            plugin.exchange().openSell(player, inHand);
         }
-        ItemStack template = inHand.clone();
-        template.setAmount(1);
-
-        double defaultPrice = 0;
-        try {
-            MarketStats stats = plugin.database().marketStats(template.getType().name());
-            if (stats.hasData()) {
-                defaultPrice = stats.average();
-            }
-        } catch (Exception ignored) {
-            // fall back to an unset price
-        }
-
-        int available = Items.count(player, template);
-        SellSession session = new SellSession(template, Math.max(1, Math.min(inHand.getAmount(), available)),
-                defaultPrice);
-        plugin.input().setSell(player.getUniqueId(), session);
-        new SellMenu(plugin, session).open(player);
     }
 
     private void sendHelp(Player player) {
         player.sendMessage(msg("Grand Exchange:", NamedTextColor.GOLD));
-        player.sendMessage(msg("/ge - browse listings and buy", NamedTextColor.YELLOW));
-        player.sendMessage(msg("/ge sell - sell the item in your hand", NamedTextColor.YELLOW));
+        player.sendMessage(msg("/ge - open the exchange (browse, sell and manage from the menu)",
+                NamedTextColor.YELLOW));
+        player.sendMessage(msg("/ge sell - start selling the item in your hand", NamedTextColor.YELLOW));
         player.sendMessage(msg("/ge mine - view & cancel your listings", NamedTextColor.YELLOW));
     }
 
