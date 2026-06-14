@@ -4,7 +4,7 @@ main: com.github.petterj345.grandexchange.Grandexchange
 api-version: '1.21'
 description: '${project.description}'
 author: petterj345
-softdepend: [Vault]
+softdepend: [Vault, Citizens]
 
 # Loaded at runtime by Paper's library loader (downloaded from Maven Central).
 libraries:

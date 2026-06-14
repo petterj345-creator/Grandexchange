@@ -51,17 +51,7 @@ public final class ExchangeCommand implements TabExecutor {
     }
 
     private void openBrowse(Player player) {
-        try {
-            List<Listing> listings = plugin.database().all();
-            if (listings.isEmpty()) {
-                player.sendMessage(msg("The Grand Exchange is empty. Use /ge sell to list something!",
-                        NamedTextColor.GRAY));
-                return;
-            }
-            new ExchangeMenu(plugin, ExchangeMenu.Mode.BROWSE, listings, 0).open(player);
-        } catch (Exception e) {
-            player.sendMessage(msg("Failed to open the exchange: " + e.getMessage(), NamedTextColor.RED));
-        }
+        plugin.exchange().openBrowse(player);
     }
 
     private void openMine(Player player) {

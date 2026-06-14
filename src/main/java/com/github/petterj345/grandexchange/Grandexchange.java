@@ -5,6 +5,7 @@ import com.github.petterj345.grandexchange.economy.EconomyHook;
 import com.github.petterj345.grandexchange.input.InputManager;
 import com.github.petterj345.grandexchange.listener.ChatListener;
 import com.github.petterj345.grandexchange.listener.MenuListener;
+import com.github.petterj345.grandexchange.service.ExchangeService;
 import com.github.petterj345.grandexchange.storage.Database;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -17,6 +18,7 @@ public final class Grandexchange extends JavaPlugin {
     private Database database;
     private EconomyHook economy;
     private InputManager input;
+    private ExchangeService exchange;
 
     @Override
     public void onEnable() {
@@ -39,9 +41,21 @@ public final class Grandexchange extends JavaPlugin {
         }
 
         input = new InputManager();
+        exchange = new ExchangeService(this);
 
         getServer().getPluginManager().registerEvents(new MenuListener(this), this);
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+
+        if (getServer().getPluginManager().getPlugin("Citizens") != null) {
+            try {
+                com.github.petterj345.grandexchange.citizens.CitizensHook.enable(this);
+                getLogger().info("Citizens integration enabled. Select an NPC and run "
+                        + "/trait grandexchange to make it a Grand Exchange clerk.");
+            } catch (Throwable t) {
+                getLogger().warning("Citizens was found but integration could not be enabled: "
+                        + t.getMessage());
+            }
+        }
 
         ExchangeCommand command = new ExchangeCommand(this);
         PluginCommand pluginCommand = getCommand("grandexchange");
@@ -71,6 +85,10 @@ public final class Grandexchange extends JavaPlugin {
 
     public InputManager input() {
         return input;
+    }
+
+    public ExchangeService exchange() {
+        return exchange;
     }
 
     public double taxPercent() {

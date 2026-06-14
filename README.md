@@ -11,6 +11,17 @@ or cancelled, so nothing is duplicated.
 - A **Paper** server, Minecraft **1.21.11**
 - **Vault** + any economy plugin (e.g. EssentialsX) for player balances
 - SQLite is downloaded automatically at runtime via Paper's library loader
+- **Citizens** (optional) — to open the exchange by right-clicking an NPC
+
+## NPC clerk (Citizens)
+
+If Citizens is installed, you can make any NPC open the Grand Exchange when right-clicked:
+
+1. Select the NPC: `/npc select` (look at it, or use `/npc select <id>`)
+2. Add the trait: `/trait grandexchange`
+
+Right-clicking that NPC now opens the browse-and-buy GUI. The trait is saved with the
+NPC, so it survives restarts. Remove it with `/trait remove grandexchange`.
 
 ## Commands
 
