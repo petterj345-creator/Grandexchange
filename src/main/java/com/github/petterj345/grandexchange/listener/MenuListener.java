@@ -112,8 +112,14 @@ public final class MenuListener implements Listener {
             return;
         }
         MarketSummary summary = menu.summaryAt(slot);
-        if (summary != null) {
+        if (summary == null) {
+            return;
+        }
+        // Sellers present -> buy from them. Only buy orders (demand) -> sell into them.
+        if (summary.hasAsk()) {
             plugin.exchange().openBuy(player, summary.item());
+        } else if (summary.hasBid()) {
+            plugin.exchange().openSell(player, summary.item());
         }
     }
 

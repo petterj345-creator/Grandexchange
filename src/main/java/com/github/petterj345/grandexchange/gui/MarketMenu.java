@@ -117,7 +117,11 @@ public final class MarketMenu implements InventoryHolder {
             lore.add(Gui.line("No buyers right now", NamedTextColor.GRAY));
         }
         lore.add(Component.empty());
-        lore.add(Gui.line("Click to place a buy offer", NamedTextColor.AQUA));
+        if (summary.hasAsk()) {
+            lore.add(Gui.line("Click to buy", NamedTextColor.AQUA));
+        } else {
+            lore.add(Gui.line("Click to sell into these buy orders", NamedTextColor.AQUA));
+        }
         return Gui.decorate(icon, lore);
     }
 }
