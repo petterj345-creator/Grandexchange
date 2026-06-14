@@ -1,32 +1,83 @@
 package com.github.petterj345.grandexchange;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
+import com.github.petterj345.grandexchange.command.ExchangeCommand;
+import com.github.petterj345.grandexchange.economy.EconomyHook;
+import com.github.petterj345.grandexchange.input.InputManager;
+import com.github.petterj345.grandexchange.listener.ChatListener;
+import com.github.petterj345.grandexchange.listener.MenuListener;
+import com.github.petterj345.grandexchange.storage.Database;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Main entry point for the Grandexchange plugin.
  */
 public final class Grandexchange extends JavaPlugin {
 
+    private Database database;
+    private EconomyHook economy;
+    private InputManager input;
+
     @Override
     public void onEnable() {
+        saveDefaultConfig();
+
+        economy = new EconomyHook(this);
+        if (!economy.setup()) {
+            getLogger().severe("Vault economy provider not found. Install Vault + an economy plugin. Disabling.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        try {
+            database = new Database(this);
+            database.initialize();
+        } catch (Exception e) {
+            getLogger().severe("Failed to initialise the database: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        input = new InputManager();
+
+        getServer().getPluginManager().registerEvents(new MenuListener(this), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+
+        ExchangeCommand command = new ExchangeCommand(this);
+        PluginCommand pluginCommand = getCommand("grandexchange");
+        if (pluginCommand != null) {
+            pluginCommand.setExecutor(command);
+            pluginCommand.setTabCompleter(command);
+        }
+
         getLogger().info("Grandexchange enabled.");
     }
 
     @Override
     public void onDisable() {
+        if (database != null) {
+            database.close();
+        }
         getLogger().info("Grandexchange disabled.");
     }
 
-    @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
-                             @NotNull String label, @NotNull String[] args) {
-        if (command.getName().equalsIgnoreCase("grandexchange")) {
-            sender.sendMessage("Grandexchange v" + getPluginMeta().getVersion() + " is running.");
-            return true;
-        }
-        return false;
+    public Database database() {
+        return database;
+    }
+
+    public EconomyHook economy() {
+        return economy;
+    }
+
+    public InputManager input() {
+        return input;
+    }
+
+    public double taxPercent() {
+        return getConfig().getDouble("tax-percent", 0.0);
+    }
+
+    public int maxListingsPerPlayer() {
+        return getConfig().getInt("max-listings-per-player", 20);
     }
 }

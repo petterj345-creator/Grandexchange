@@ -4,9 +4,19 @@ main: com.github.petterj345.grandexchange.Grandexchange
 api-version: '1.21'
 description: '${project.description}'
 author: petterj345
+softdepend: [Vault]
+
+# Loaded at runtime by Paper's library loader (downloaded from Maven Central).
+libraries:
+  - org.xerial:sqlite-jdbc:3.46.1.3
 
 commands:
   grandexchange:
-    description: Base command for the Grandexchange plugin.
-    usage: /grandexchange
-    aliases: [ge]
+    description: Open and use the Grand Exchange.
+    usage: /grandexchange [sell|mine|help]
+    aliases: [ge, gx]
+
+permissions:
+  grandexchange.use:
+    description: Allows browsing, buying and selling on the Grand Exchange.
+    default: true
