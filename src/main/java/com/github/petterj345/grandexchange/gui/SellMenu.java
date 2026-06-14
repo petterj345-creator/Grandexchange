@@ -29,6 +29,7 @@ public final class SellMenu implements InventoryHolder {
     public static final int SLOT_INC_1 = 15;
     public static final int SLOT_INC_10 = 16;
     public static final int SLOT_ALL = 9;
+    public static final int SLOT_FILL = 6;
     public static final int SLOT_TYPE_AMOUNT = 17;
     public static final int SLOT_SET_PRICE = 4;
     public static final int SLOT_USE_MARKET = 5;
@@ -73,6 +74,7 @@ public final class SellMenu implements InventoryHolder {
         inventory.setItem(SLOT_INC_1, Gui.button(Material.LIME_STAINED_GLASS_PANE, "+1", null));
         inventory.setItem(SLOT_INC_10, Gui.button(Material.GREEN_STAINED_GLASS_PANE, "+10", null));
         inventory.setItem(SLOT_ALL, Gui.button(Material.HOPPER, "Sell all (" + available + ")", null));
+        inventory.setItem(SLOT_FILL, fillButton(player, available));
         inventory.setItem(SLOT_TYPE_AMOUNT, Gui.button(Material.OAK_SIGN, "Type amount in chat", null));
         inventory.setItem(SLOT_SET_PRICE, priceButton());
         inventory.setItem(SLOT_USE_MARKET, marketButton(summary));
@@ -117,6 +119,29 @@ public final class SellMenu implements InventoryHolder {
         lore.add(Component.empty());
         lore.add(Gui.line("You have " + available + " in your inventory", NamedTextColor.GRAY));
         return Gui.decorate(icon, lore);
+    }
+
+    /** How much the buy orders want at the current price (capped at what the player has). */
+    public int buyDemand(Player player) {
+        try {
+            return plugin.database().matchableBuyQuantity(session.label(), session.pricePerItem(),
+                    player.getUniqueId());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private ItemStack fillButton(Player player, int available) {
+        int demand = buyDemand(player);
+        int settable = Math.min(available, demand);
+        List<Component> lore = new ArrayList<>();
+        lore.add(Gui.line("Buy orders want: " + demand + " at your price", NamedTextColor.AQUA));
+        if (demand > 0) {
+            lore.add(Gui.line("Click to sell exactly " + settable, NamedTextColor.GRAY));
+        } else {
+            lore.add(Gui.line("No buy orders at your price", NamedTextColor.GRAY));
+        }
+        return Gui.button(Material.TARGET, "Sell exact amount wanted", lore);
     }
 
     private ItemStack priceButton() {

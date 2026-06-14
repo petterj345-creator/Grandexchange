@@ -154,6 +154,22 @@ public final class Database {
         return out;
     }
 
+    /** Total quantity wanted by other players' BUY offers priced at or above {@code minPrice}. */
+    public synchronized int matchableBuyQuantity(String label, double minPrice, UUID excludeOwner)
+            throws SQLException {
+        String sql = "SELECT COALESCE(SUM(quantity), 0) AS q FROM offers "
+                + "WHERE side = 'BUY' AND item_label = ? AND quantity > 0 "
+                + "AND price_per_item >= ? AND owner_uuid <> ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, label);
+            ps.setDouble(2, minPrice);
+            ps.setString(3, excludeOwner.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt("q") : 0;
+            }
+        }
+    }
+
     public synchronized void updateOffer(long id, int quantity, double escrowCoins) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(
                 "UPDATE offers SET quantity = ?, escrow_coins = ? WHERE id = ?")) {

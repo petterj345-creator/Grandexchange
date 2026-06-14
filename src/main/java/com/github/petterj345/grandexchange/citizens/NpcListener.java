@@ -23,6 +23,6 @@ public final class NpcListener implements Listener {
         if (!event.getNPC().hasTrait(GrandExchangeTrait.class)) {
             return;
         }
-        plugin.exchange().openMarket(event.getClicker());
+        plugin.exchange().openBuyBrowse(event.getClicker());
     }
 }

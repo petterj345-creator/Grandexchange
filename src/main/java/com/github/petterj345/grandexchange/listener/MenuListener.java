@@ -103,8 +103,12 @@ public final class MenuListener implements Listener {
             later(() -> menu.reopen(player, menu.page() + 1));
             return;
         }
-        if (slot == MarketMenu.SLOT_NEW_BUY) {
-            plugin.exchange().openBuySelect(player);
+        if (slot == MarketMenu.SLOT_NEW) {
+            if (menu.mode() == MarketMenu.Mode.BUYING) {
+                plugin.exchange().openBuySelect(player);
+            } else {
+                plugin.exchange().openSellSelect(player);
+            }
             return;
         }
         if (Nav.isTab(slot)) {
@@ -115,11 +119,12 @@ public final class MenuListener implements Listener {
         if (summary == null) {
             return;
         }
-        // Sellers present -> buy from them. Only buy orders (demand) -> sell into them.
-        if (summary.hasAsk()) {
+        // Buy window -> buy from the sell order. Sell window -> sell into the buy order
+        // (pre-filled to exactly fill it).
+        if (menu.mode() == MarketMenu.Mode.BUYING) {
             plugin.exchange().openBuy(player, summary.item());
-        } else if (summary.hasBid()) {
-            plugin.exchange().openSell(player, summary.item());
+        } else {
+            plugin.exchange().openSell(player, summary.item(), true);
         }
     }
 
@@ -167,8 +172,8 @@ public final class MenuListener implements Listener {
 
     private void handleTab(Player player, int slot) {
         switch (slot) {
-            case Nav.MARKET -> plugin.exchange().openMarket(player);
-            case Nav.SELL -> plugin.exchange().openSellSelect(player);
+            case Nav.BUY -> plugin.exchange().openBuyBrowse(player);
+            case Nav.SELL -> plugin.exchange().openSellBrowse(player);
             case Nav.MY_OFFERS -> plugin.exchange().openMyOffers(player);
             case Nav.COLLECTION -> plugin.exchange().openCollection(player);
             default -> {
@@ -183,7 +188,11 @@ public final class MenuListener implements Listener {
         if (event.getClickedInventory() == top) {
             // Both pickers use slot 0 as the back button.
             if (event.getSlot() == SellSelectMenu.SLOT_BACK) {
-                plugin.exchange().openMarket(player);
+                if (buy) {
+                    plugin.exchange().openBuyBrowse(player);
+                } else {
+                    plugin.exchange().openSellBrowse(player);
+                }
             }
             return;
         }
@@ -223,7 +232,7 @@ public final class MenuListener implements Listener {
             case BuyMenu.SLOT_CONFIRM -> plugin.exchange().confirmBuy(player, session);
             case BuyMenu.SLOT_CANCEL -> {
                 plugin.input().clearBuy(player.getUniqueId());
-                plugin.exchange().openMarket(player);
+                plugin.exchange().openBuyBrowse(player);
             }
             default -> {
                 // decorative
@@ -242,6 +251,15 @@ public final class MenuListener implements Listener {
             case SellMenu.SLOT_INC_10 -> refresh(player, menu, () -> session.amount(session.amount() + 10));
             case SellMenu.SLOT_ALL -> refresh(player, menu, () ->
                     session.amount(Math.max(1, Items.count(player, session.template()))));
+            case SellMenu.SLOT_FILL -> refresh(player, menu, () -> {
+                int demand = menu.buyDemand(player);
+                if (demand <= 0) {
+                    player.sendMessage(msg("No buy orders to fill at your price.", NamedTextColor.GRAY));
+                    return;
+                }
+                int available = Items.count(player, session.template());
+                session.amount(Math.max(1, Math.min(available, demand)));
+            });
             case SellMenu.SLOT_TYPE_AMOUNT -> prompt(player, PromptType.SELL_QUANTITY,
                     "Type how many you want to sell (or 'cancel').");
             case SellMenu.SLOT_SET_PRICE -> prompt(player, PromptType.SELL_PRICE,
@@ -259,7 +277,7 @@ public final class MenuListener implements Listener {
             case SellMenu.SLOT_CONFIRM -> plugin.exchange().confirmSell(player, session);
             case SellMenu.SLOT_CANCEL -> {
                 plugin.input().clearSell(player.getUniqueId());
-                plugin.exchange().openMarket(player);
+                plugin.exchange().openSellBrowse(player);
             }
             default -> {
                 // decorative

@@ -19,6 +19,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,12 +43,36 @@ public final class ExchangeService {
 
     // ---------------------------------------------------------------- screens
 
-    /** The Buy window: the market / price list. Clicking an item starts a buy offer. */
-    public void openMarket(Player player) {
+    /** The Buy window: items for sale (sell orders). Clicking an item buys it. */
+    public void openBuyBrowse(Player player) {
         clearSessions(player.getUniqueId());
         later(() -> {
             try {
-                new MarketMenu(plugin, plugin.database().marketSummaries(), 0).open(player);
+                List<MarketSummary> asks = new ArrayList<>();
+                for (MarketSummary summary : plugin.database().marketSummaries()) {
+                    if (summary.hasAsk()) {
+                        asks.add(summary);
+                    }
+                }
+                new MarketMenu(plugin, MarketMenu.Mode.BUYING, asks, 0).open(player);
+            } catch (Exception e) {
+                error(player, e);
+            }
+        });
+    }
+
+    /** The Sell window: items wanted (buy orders). Clicking an item sells into it. */
+    public void openSellBrowse(Player player) {
+        clearSessions(player.getUniqueId());
+        later(() -> {
+            try {
+                List<MarketSummary> bids = new ArrayList<>();
+                for (MarketSummary summary : plugin.database().marketSummaries()) {
+                    if (summary.hasBid()) {
+                        bids.add(summary);
+                    }
+                }
+                new MarketMenu(plugin, MarketMenu.Mode.SELLING, bids, 0).open(player);
             } catch (Exception e) {
                 error(player, e);
             }
@@ -142,12 +167,21 @@ public final class ExchangeService {
                     + " wanted at up to " + plugin.economy().format(session.maxPricePerItem())
                     + " each. You'll receive them automatically as sellers appear.", NamedTextColor.YELLOW));
         }
-        openMarket(player);
+        openBuyBrowse(player);
     }
 
     // ------------------------------------------------------------ sell window
 
     public void openSell(Player player, ItemStack source) {
+        openSell(player, source, false);
+    }
+
+    /**
+     * @param fillBuyOrders when true (came from clicking a buy order), the quantity is
+     *                      pre-filled to exactly what the buy orders want and the price to
+     *                      the top buy offer, so a single Confirm fills the order.
+     */
+    public void openSell(Player player, ItemStack source, boolean fillBuyOrders) {
         ItemStack template = source.clone();
         template.setAmount(1);
         int available = Items.count(player, template);
@@ -162,13 +196,30 @@ public final class ExchangeService {
         } else if (summary != null && summary.hasAsk()) {
             defaultPrice = summary.lowestAsk();
         }
+
         int startAmount = Math.max(1, Math.min(source.getAmount(), available));
+        if (fillBuyOrders) {
+            int demand = buyDemand(player, template.getType().name(), defaultPrice);
+            if (demand > 0) {
+                startAmount = Math.max(1, Math.min(available, demand));
+            }
+        }
+
         SellSession session = new SellSession(template, startAmount, defaultPrice);
         // Entering the sell flow clears any half-finished buy flow.
         plugin.input().clearPrompt(player.getUniqueId());
         plugin.input().clearBuy(player.getUniqueId());
         plugin.input().setSell(player.getUniqueId(), session);
         later(() -> new SellMenu(plugin, session).open(player));
+    }
+
+    /** Quantity wanted by other players' buy orders for this item at or above {@code price}. */
+    public int buyDemand(Player player, String label, double price) {
+        try {
+            return plugin.database().matchableBuyQuantity(label, price, player.getUniqueId());
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     public void confirmSell(Player player, SellSession session) {
@@ -207,7 +258,7 @@ public final class ExchangeService {
                     + " at " + plugin.economy().format(session.pricePerItem()) + " each.",
                     NamedTextColor.YELLOW));
         }
-        openMarket(player);
+        openSellBrowse(player);
     }
 
     // -------------------------------------------------------- cancel / collect

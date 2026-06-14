@@ -7,7 +7,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -19,7 +18,7 @@ import java.util.List;
  */
 public final class ExchangeCommand implements TabExecutor {
 
-    private static final List<String> SUBCOMMANDS = List.of("market", "sell", "offers", "collect", "help");
+    private static final List<String> SUBCOMMANDS = List.of("buy", "sell", "offers", "collect", "help");
 
     private final Grandexchange plugin;
 
@@ -35,15 +34,15 @@ public final class ExchangeCommand implements TabExecutor {
             return true;
         }
         if (args.length == 0
+                || args[0].equalsIgnoreCase("buy")
                 || args[0].equalsIgnoreCase("market")
                 || args[0].equalsIgnoreCase("browse")
-                || args[0].equalsIgnoreCase("open")
-                || args[0].equalsIgnoreCase("prices")) {
-            plugin.exchange().openMarket(player);
+                || args[0].equalsIgnoreCase("open")) {
+            plugin.exchange().openBuyBrowse(player);
             return true;
         }
         switch (args[0].toLowerCase()) {
-            case "sell" -> openSell(player);
+            case "sell" -> plugin.exchange().openSellBrowse(player);
             case "offers", "mine" -> plugin.exchange().openMyOffers(player);
             case "collect", "collection" -> plugin.exchange().openCollection(player);
             default -> sendHelp(player);
@@ -51,20 +50,10 @@ public final class ExchangeCommand implements TabExecutor {
         return true;
     }
 
-    private void openSell(Player player) {
-        // Holding something? Sell that directly; otherwise let them pick in the GUI.
-        ItemStack inHand = player.getInventory().getItemInMainHand();
-        if (inHand.getType().isAir()) {
-            plugin.exchange().openSellSelect(player);
-        } else {
-            plugin.exchange().openSell(player, inHand);
-        }
-    }
-
     private void sendHelp(Player player) {
         player.sendMessage(msg("Grand Exchange:", NamedTextColor.GOLD));
-        player.sendMessage(msg("/ge - open the market (prices, buy, sell, collect)", NamedTextColor.YELLOW));
-        player.sendMessage(msg("/ge sell - start selling the item in your hand", NamedTextColor.YELLOW));
+        player.sendMessage(msg("/ge buy - browse items for sale (sell orders)", NamedTextColor.YELLOW));
+        player.sendMessage(msg("/ge sell - browse buy orders to sell into", NamedTextColor.YELLOW));
         player.sendMessage(msg("/ge offers - view & cancel your buy/sell offers", NamedTextColor.YELLOW));
         player.sendMessage(msg("/ge collect - open your collection box", NamedTextColor.YELLOW));
     }
