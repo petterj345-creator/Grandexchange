@@ -24,6 +24,7 @@ public final class MarketMenu implements InventoryHolder {
 
     private static final int SIZE = 54;
     private static final int PER_PAGE = 45;
+    public static final int SLOT_NEW_BUY = 46;
 
     private final Grandexchange plugin;
     private final List<MarketSummary> summaries;
@@ -83,11 +84,16 @@ public final class MarketMenu implements InventoryHolder {
         if (summaries.isEmpty()) {
             inventory.setItem(22, Gui.button(org.bukkit.Material.PAPER,
                     "The market is empty", List.of(
-                            Gui.line("Use the Sell tab to list something,", NamedTextColor.GRAY),
-                            Gui.line("or place a buy offer once items appear.", NamedTextColor.GRAY))));
+                            Gui.line("Use 'Create a buy offer' to request an item,", NamedTextColor.GRAY),
+                            Gui.line("or the Sell window to list something.", NamedTextColor.GRAY))));
         }
 
         Nav.render(inventory, page > 0, page < totalPages() - 1);
+        inventory.setItem(SLOT_NEW_BUY, Gui.button(org.bukkit.Material.NETHER_STAR,
+                "Create a buy offer", List.of(
+                        Gui.line("Pick an item from your inventory", NamedTextColor.GRAY),
+                        Gui.line("to buy more of it — even if no one", NamedTextColor.GRAY),
+                        Gui.line("is selling it yet.", NamedTextColor.GRAY))));
     }
 
     private ItemStack render(MarketSummary summary) {

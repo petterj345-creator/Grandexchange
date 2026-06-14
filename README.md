@@ -46,9 +46,13 @@ The **Buy / Prices** tab lists every item on the exchange with its **lowest sell
 (what you'd pay to buy) and **highest buy offer** (what you'd get for selling), plus the
 quantities available/wanted — your price viewer.
 
-To buy: click an item → set the **quantity** (buttons or "type amount") and your **max
-price each** (chat, or **Match market price**) → **Confirm**. `quantity × max price` is
-reserved from your balance, then:
+To buy, either **click an item already on the market**, or click **Create a buy offer**
+and pick an item from your own inventory (a sample) — this works even when nobody is
+selling that item yet.
+
+Then set the **quantity** (buttons or "type amount") and your **max price each** (chat,
+or **Match market price**) → **Confirm**. `quantity × max price` is reserved from your
+balance, then:
 
 - It **instantly fills** against any sellers at your price **or lower** — you pay *their*
   price (refunded the difference) and the items go **straight into your inventory**.

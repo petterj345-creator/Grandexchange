@@ -86,6 +86,12 @@ public final class ExchangeService {
 
     // ------------------------------------------------------------- buy window
 
+    /** Entry to create a buy offer for any item the player has a sample of. */
+    public void openBuySelect(Player player) {
+        clearSessions(player.getUniqueId());
+        later(() -> new com.github.petterj345.grandexchange.gui.BuySelectMenu(plugin).open(player));
+    }
+
     public void openBuy(Player player, ItemStack source) {
         ItemStack template = source.clone();
         template.setAmount(1);

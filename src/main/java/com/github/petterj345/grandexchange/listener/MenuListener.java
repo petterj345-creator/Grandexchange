@@ -2,6 +2,7 @@ package com.github.petterj345.grandexchange.listener;
 
 import com.github.petterj345.grandexchange.Grandexchange;
 import com.github.petterj345.grandexchange.gui.BuyMenu;
+import com.github.petterj345.grandexchange.gui.BuySelectMenu;
 import com.github.petterj345.grandexchange.gui.CollectionMenu;
 import com.github.petterj345.grandexchange.gui.MarketMenu;
 import com.github.petterj345.grandexchange.gui.MyOffersMenu;
@@ -37,6 +38,7 @@ public final class MenuListener implements Listener {
     private static boolean ours(InventoryHolder holder) {
         return holder instanceof MarketMenu || holder instanceof BuyMenu
                 || holder instanceof SellMenu || holder instanceof SellSelectMenu
+                || holder instanceof BuySelectMenu
                 || holder instanceof MyOffersMenu || holder instanceof CollectionMenu;
     }
 
@@ -64,9 +66,13 @@ public final class MenuListener implements Listener {
             return;
         }
 
-        // The sell-picker reacts to clicks in the player's own (bottom) inventory.
+        // The sell/buy pickers react to clicks in the player's own (bottom) inventory.
         if (holder instanceof SellSelectMenu) {
-            handleSelectClick(player, event, top);
+            handlePickerClick(player, event, top, false);
+            return;
+        }
+        if (holder instanceof BuySelectMenu) {
+            handlePickerClick(player, event, top, true);
             return;
         }
         if (event.getClickedInventory() == null || event.getClickedInventory() != top) {
@@ -95,6 +101,10 @@ public final class MenuListener implements Listener {
         }
         if (slot == Nav.NEXT) {
             later(() -> menu.reopen(player, menu.page() + 1));
+            return;
+        }
+        if (slot == MarketMenu.SLOT_NEW_BUY) {
+            plugin.exchange().openBuySelect(player);
             return;
         }
         if (Nav.isTab(slot)) {
@@ -163,8 +173,9 @@ public final class MenuListener implements Listener {
 
     // ----------------------------------------------------------- sell picker
 
-    private void handleSelectClick(Player player, InventoryClickEvent event, Inventory top) {
+    private void handlePickerClick(Player player, InventoryClickEvent event, Inventory top, boolean buy) {
         if (event.getClickedInventory() == top) {
+            // Both pickers use slot 0 as the back button.
             if (event.getSlot() == SellSelectMenu.SLOT_BACK) {
                 plugin.exchange().openMarket(player);
             }
@@ -174,7 +185,11 @@ public final class MenuListener implements Listener {
         if (clicked == null || clicked.getType().isAir()) {
             return;
         }
-        plugin.exchange().openSell(player, clicked);
+        if (buy) {
+            plugin.exchange().openBuy(player, clicked);
+        } else {
+            plugin.exchange().openSell(player, clicked);
+        }
     }
 
     // -------------------------------------------------------------------- buy
