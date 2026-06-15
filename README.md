@@ -43,33 +43,38 @@ Buy orders and sell orders live in **separate windows**. The GUI has four tabs:
 **My offers**, and **Collection box**.
 
 ### Buy window (`Buy` tab)
-Lists every item currently **for sale**, with its lowest price and quantity available.
+Lists every resting **sell order** as its own row — several orders for the same item each
+appear separately, cheapest first — showing each order's price, quantity and seller.
 
-To buy, either **click an item** in the list, or click **Create a buy offer** and pick an
-item from your own inventory (a sample) — this works even when nobody is selling it yet.
-Then set the **quantity** and your **max price each** → **Confirm**. `quantity × max
-price` is reserved from your balance, then:
+To buy, either **click a sell order** — this opens a one-click confirmation locked to that
+order's price and quantity, so you just press **Accept** to buy it — or click **Create a
+buy offer** and pick an item from your own inventory (a sample) to compose your own offer;
+this works even when nobody is selling it yet. In the builder you adjust the **quantity**
+and your **max price each** → **Confirm**. `quantity × max price` is reserved from your
+balance, then:
 
 - It **instantly fills** against any sellers at your price **or lower** — you pay *their*
-  price (refunded the difference) and the items go **straight into your inventory**.
+  price (refunded the difference) and the items land in your **collection box**.
 - Anything unfilled keeps **resting**, and fills automatically as new sellers appear
-  (those later items go to your **collection box**, since you may be offline).
+  (those later items also go to your **collection box**, since you may be offline).
 
 ### Sell window (`Sell` tab)
-Lists every item players currently **want** (open buy orders), with the best price and
-quantity wanted.
+Lists every resting **buy order** as its own row — several orders for the same item each
+appear separately, highest-paying first — showing each order's price, quantity and buyer.
 
-- **Click a buy order** to sell into it — the sell is pre-filled to exactly fill that
-  order at its price, so you just **Confirm**. The **Sell exact amount wanted** button
-  also snaps your quantity to what the buy orders want (capped by what you have).
-- Or click **Sell from inventory** to list a sell offer at your own price.
+- **Click a buy order** to sell into it — this opens the sell builder pre-filled to that
+  order's price and quantity (capped by what you hold), so you can sell **any amount you
+  have** (e.g. 100 into a buy order that wants 1000) and then **Confirm**. The **Sell exact
+  amount wanted** button snaps your quantity to total demand at your price.
+- Or click **Sell from inventory** to compose a sell offer at your own price.
 
-Selling escrows your items; matched coins are **paid to your balance** immediately, and
-any unfilled remainder rests and stays buyable.
+Selling escrows your items; matched coins land in your **collection box**, and any
+unfilled remainder rests and stays buyable.
 
 ### Collection box
-Items/coins from fills that happened while your offer was resting wait in the
-**Collection** tab — click an entry to take it out, or **Collect everything**.
+Items and coins from every fill — whether it happened instantly or while your offer was
+resting — wait in the **Collection** tab. Click an entry to take it out, or **Collect
+everything**.
 Cancelling an offer from **My offers** returns its remainder (items, or reserved coins)
 to you immediately.
 

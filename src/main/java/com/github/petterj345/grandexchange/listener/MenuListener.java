@@ -4,6 +4,7 @@ import com.github.petterj345.grandexchange.Grandexchange;
 import com.github.petterj345.grandexchange.gui.BuyMenu;
 import com.github.petterj345.grandexchange.gui.BuySelectMenu;
 import com.github.petterj345.grandexchange.gui.CollectionMenu;
+import com.github.petterj345.grandexchange.gui.ConfirmMenu;
 import com.github.petterj345.grandexchange.gui.MarketMenu;
 import com.github.petterj345.grandexchange.gui.MyOffersMenu;
 import com.github.petterj345.grandexchange.gui.Nav;
@@ -14,6 +15,7 @@ import com.github.petterj345.grandexchange.input.Prompt;
 import com.github.petterj345.grandexchange.input.PromptType;
 import com.github.petterj345.grandexchange.input.SellSession;
 import com.github.petterj345.grandexchange.storage.MarketSummary;
+import com.github.petterj345.grandexchange.storage.Offer;
 import com.github.petterj345.grandexchange.util.Items;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -38,7 +40,7 @@ public final class MenuListener implements Listener {
     private static boolean ours(InventoryHolder holder) {
         return holder instanceof MarketMenu || holder instanceof BuyMenu
                 || holder instanceof SellMenu || holder instanceof SellSelectMenu
-                || holder instanceof BuySelectMenu
+                || holder instanceof BuySelectMenu || holder instanceof ConfirmMenu
                 || holder instanceof MyOffersMenu || holder instanceof CollectionMenu;
     }
 
@@ -89,6 +91,8 @@ public final class MenuListener implements Listener {
             handleBuyClick(player, menu, slot);
         } else if (holder instanceof SellMenu menu) {
             handleSellClick(player, menu, slot);
+        } else if (holder instanceof ConfirmMenu menu) {
+            handleConfirmClick(player, menu, slot);
         }
     }
 
@@ -115,16 +119,25 @@ public final class MenuListener implements Listener {
             handleTab(player, slot);
             return;
         }
-        MarketSummary summary = menu.summaryAt(slot);
-        if (summary == null) {
+        Offer offer = menu.offerAt(slot);
+        if (offer == null) {
             return;
         }
-        // Buy window -> buy from the sell order. Sell window -> sell into the buy order
-        // (pre-filled to exactly fill it).
+        // Buy window -> buy from this sell order. Sell window -> sell into this buy order.
+        // Either way the flow is pre-filled to that order's price and quantity.
         if (menu.mode() == MarketMenu.Mode.BUYING) {
-            plugin.exchange().openBuy(player, summary.item());
+            plugin.exchange().openBuy(player, offer);
         } else {
-            plugin.exchange().openSell(player, summary.item(), true);
+            plugin.exchange().openSell(player, offer);
+        }
+    }
+
+    /** Accept/Back on the one-click confirmation for buying a clicked sell order. */
+    private void handleConfirmClick(Player player, ConfirmMenu menu, int slot) {
+        if (slot == ConfirmMenu.SLOT_ACCEPT) {
+            plugin.exchange().confirmBuy(player, menu.session());
+        } else if (slot == ConfirmMenu.SLOT_CANCEL) {
+            plugin.exchange().openBuyBrowse(player);
         }
     }
 

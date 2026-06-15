@@ -4,6 +4,7 @@ import com.github.petterj345.grandexchange.Grandexchange;
 import com.github.petterj345.grandexchange.engine.MatchResult;
 import com.github.petterj345.grandexchange.gui.BuyMenu;
 import com.github.petterj345.grandexchange.gui.CollectionMenu;
+import com.github.petterj345.grandexchange.gui.ConfirmMenu;
 import com.github.petterj345.grandexchange.gui.MarketMenu;
 import com.github.petterj345.grandexchange.gui.MyOffersMenu;
 import com.github.petterj345.grandexchange.gui.SellMenu;
@@ -13,13 +14,13 @@ import com.github.petterj345.grandexchange.input.SellSession;
 import com.github.petterj345.grandexchange.storage.CollectionEntry;
 import com.github.petterj345.grandexchange.storage.MarketSummary;
 import com.github.petterj345.grandexchange.storage.Offer;
+import com.github.petterj345.grandexchange.storage.OfferSide;
 import com.github.petterj345.grandexchange.util.Items;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,17 +44,12 @@ public final class ExchangeService {
 
     // ---------------------------------------------------------------- screens
 
-    /** The Buy window: items for sale (sell orders). Clicking an item buys it. */
+    /** The Buy window: each resting sell order on its own row. Clicking one buys from it. */
     public void openBuyBrowse(Player player) {
         clearSessions(player.getUniqueId());
         later(() -> {
             try {
-                List<MarketSummary> asks = new ArrayList<>();
-                for (MarketSummary summary : plugin.database().marketSummaries()) {
-                    if (summary.hasAsk()) {
-                        asks.add(summary);
-                    }
-                }
+                List<Offer> asks = plugin.database().restingOffers(OfferSide.SELL);
                 new MarketMenu(plugin, MarketMenu.Mode.BUYING, asks, 0).open(player);
             } catch (Exception e) {
                 error(player, e);
@@ -61,17 +57,12 @@ public final class ExchangeService {
         });
     }
 
-    /** The Sell window: items wanted (buy orders). Clicking an item sells into it. */
+    /** The Sell window: each resting buy order on its own row. Clicking one sells into it. */
     public void openSellBrowse(Player player) {
         clearSessions(player.getUniqueId());
         later(() -> {
             try {
-                List<MarketSummary> bids = new ArrayList<>();
-                for (MarketSummary summary : plugin.database().marketSummaries()) {
-                    if (summary.hasBid()) {
-                        bids.add(summary);
-                    }
-                }
+                List<Offer> bids = plugin.database().restingOffers(OfferSide.BUY);
                 new MarketMenu(plugin, MarketMenu.Mode.SELLING, bids, 0).open(player);
             } catch (Exception e) {
                 error(player, e);
@@ -133,6 +124,21 @@ public final class ExchangeService {
         later(() -> new BuyMenu(plugin, session).open(player));
     }
 
+    /**
+     * Buy directly from a specific resting sell order: opens a one-click confirmation fixed
+     * to that order's price and quantity (no adjustable builder), so the player just Accepts.
+     */
+    public void openBuy(Player player, Offer sellOffer) {
+        ItemStack template = sellOffer.item().clone();
+        template.setAmount(1);
+        BuySession session = new BuySession(template, Math.max(1, sellOffer.quantity()),
+                sellOffer.pricePerItem());
+        plugin.input().clearPrompt(player.getUniqueId());
+        plugin.input().clearSell(player.getUniqueId());
+        plugin.input().setBuy(player.getUniqueId(), session);
+        later(() -> new ConfirmMenu(plugin, sellOffer, session).open(player));
+    }
+
     public void confirmBuy(Player player, BuySession session) {
         if (session.maxPricePerItem() <= 0) {
             player.sendMessage(msg("Set a max price first.", NamedTextColor.RED));
@@ -156,16 +162,16 @@ public final class ExchangeService {
         String item = session.template().getType().name();
         if (result.filled() > 0 && result.resting() > 0) {
             player.sendMessage(msg("Bought " + result.filled() + "x " + item + " for "
-                    + plugin.economy().format(result.coins()) + " (added to your inventory). "
+                    + plugin.economy().format(result.coins()) + " (sent to your collection box). "
                     + result.resting() + " still wanted at your price.", NamedTextColor.GREEN));
         } else if (result.filled() > 0) {
             player.sendMessage(msg("Bought " + result.filled() + "x " + item + " for "
-                    + plugin.economy().format(result.coins()) + " — added to your inventory.",
+                    + plugin.economy().format(result.coins()) + " — sent to your collection box.",
                     NamedTextColor.GREEN));
         } else {
             player.sendMessage(msg("Buy offer placed: " + result.resting() + "x " + item
                     + " wanted at up to " + plugin.economy().format(session.maxPricePerItem())
-                    + " each. You'll receive them automatically as sellers appear.", NamedTextColor.YELLOW));
+                    + " each. They'll arrive in your collection box as sellers appear.", NamedTextColor.YELLOW));
         }
         openBuyBrowse(player);
     }
@@ -213,6 +219,27 @@ public final class ExchangeService {
         later(() -> new SellMenu(plugin, session).open(player));
     }
 
+    /**
+     * Sell into a specific resting buy order: opens the adjustable sell builder pre-filled to
+     * that order's price and quantity (capped by how many the player holds), so they can sell
+     * any amount they have — e.g. 100 into a buy order that wants 1000 — and then Confirm.
+     */
+    public void openSell(Player player, Offer buyOffer) {
+        ItemStack template = buyOffer.item().clone();
+        template.setAmount(1);
+        int available = Items.count(player, template);
+        if (available <= 0) {
+            player.sendMessage(msg("You need the item in your inventory to sell it.", NamedTextColor.RED));
+            return;
+        }
+        int amount = Math.max(1, Math.min(available, buyOffer.quantity()));
+        SellSession session = new SellSession(template, amount, buyOffer.pricePerItem());
+        plugin.input().clearPrompt(player.getUniqueId());
+        plugin.input().clearBuy(player.getUniqueId());
+        plugin.input().setSell(player.getUniqueId(), session);
+        later(() -> new SellMenu(plugin, session).open(player));
+    }
+
     /** Quantity wanted by other players' buy orders for this item at or above {@code price}. */
     public int buyDemand(Player player, String label, double price) {
         try {
@@ -247,11 +274,11 @@ public final class ExchangeService {
         String item = session.template().getType().name();
         if (result.filled() > 0 && result.resting() > 0) {
             player.sendMessage(msg("Sold " + result.filled() + "x " + item + " for "
-                    + plugin.economy().format(result.coins()) + " (paid to your balance). "
+                    + plugin.economy().format(result.coins()) + " (sent to your collection box). "
                     + result.resting() + " still listed.", NamedTextColor.GREEN));
         } else if (result.filled() > 0) {
             player.sendMessage(msg("Sold " + result.filled() + "x " + item + " for "
-                    + plugin.economy().format(result.coins()) + " — paid to your balance.",
+                    + plugin.economy().format(result.coins()) + " — sent to your collection box.",
                     NamedTextColor.GREEN));
         } else {
             player.sendMessage(msg("Sell offer placed: " + result.resting() + "x " + item
@@ -288,6 +315,13 @@ public final class ExchangeService {
             if (entry != null) {
                 deliver(player, entry);
                 plugin.database().deleteCollection(entry.id());
+                if (entry.isCoins()) {
+                    player.sendMessage(msg("Collected " + plugin.economy().format(entry.coins())
+                            + " to your balance.", NamedTextColor.GREEN));
+                } else {
+                    player.sendMessage(msg("Collected " + entry.quantity() + "x "
+                            + entry.item().getType().name() + ".", NamedTextColor.GREEN));
+                }
             }
             openCollection(player);
         } catch (Exception e) {

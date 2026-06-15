@@ -5,10 +5,15 @@ import com.github.petterj345.grandexchange.storage.Database;
 import com.github.petterj345.grandexchange.storage.Offer;
 import com.github.petterj345.grandexchange.storage.OfferSide;
 import com.github.petterj345.grandexchange.util.Items;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Places offers and matches them against the resting book.
@@ -29,6 +34,14 @@ public final class MatchingEngine {
 
     private Database db() {
         return plugin.database();
+    }
+
+    /** Pings the owner of a resting offer that just got filled, if they're online. */
+    private void notify(UUID owner, String message) {
+        Player player = plugin.getServer().getPlayer(owner);
+        if (player != null) {
+            player.sendMessage(Component.text(message, NamedTextColor.GREEN));
+        }
     }
 
     /**
@@ -54,6 +67,9 @@ public final class MatchingEngine {
             double escrow = reserve;
             int filled = 0;
             double spent = 0;
+            // Aggregate fills per resting seller so each gets one notification, not one per match.
+            Map<UUID, int[]> soldQty = new HashMap<>();
+            Map<UUID, double[]> soldCoins = new HashMap<>();
 
             List<Offer> sells = db().matchableSells(label, maxPrice);
             for (Offer sell : sells) {
@@ -68,12 +84,13 @@ public final class MatchingEngine {
 
                 // Resting seller is paid via their collection box.
                 db().addCollectionCoins(sell.ownerUuid(), m * exec, now);
-                // Active buyer gets the items (and any price-improvement refund) right now.
-                Items.give(buyer, template, m);
+                // Active buyer's items (and any price-improvement refund) go to their box too.
+                db().addCollectionItem(buyer.getUniqueId(), template, m, now);
                 double refund = m * (maxPrice - exec);
-                if (refund > 0) {
-                    plugin.economy().deposit(buyer, refund);
-                }
+                db().addCollectionCoins(buyer.getUniqueId(), refund, now);
+
+                soldQty.computeIfAbsent(sell.ownerUuid(), k -> new int[1])[0] += m;
+                soldCoins.computeIfAbsent(sell.ownerUuid(), k -> new double[1])[0] += m * exec;
 
                 int sellRemaining = sell.quantity() - m;
                 if (sellRemaining <= 0) {
@@ -93,6 +110,9 @@ public final class MatchingEngine {
             } else {
                 db().updateOffer(offer.id(), remaining, escrow);
             }
+            soldQty.forEach((owner, qty) -> notify(owner, "Your sell order filled: " + qty[0]
+                    + "x " + label + " sold for " + plugin.economy().format(soldCoins.get(owner)[0])
+                    + " — waiting in your collection box."));
             return MatchResult.ok(filled, spent, Math.max(0, remaining));
         } catch (Exception e) {
             // Refund the reserve if anything went wrong after withdrawing.
@@ -118,6 +138,8 @@ public final class MatchingEngine {
             int remaining = quantity;
             int filled = 0;
             double earned = 0;
+            // Aggregate fills per resting buyer so each gets one notification, not one per match.
+            Map<UUID, int[]> boughtQty = new HashMap<>();
 
             List<Offer> buys = db().matchableBuys(label, price);
             for (Offer buy : buys) {
@@ -130,12 +152,14 @@ public final class MatchingEngine {
                 int m = Math.min(remaining, buy.quantity());
                 double exec = price; // the seller's asking price
 
-                // Active seller is paid right now.
-                plugin.economy().deposit(seller, m * exec);
+                // Active seller's proceeds go to their collection box.
+                db().addCollectionCoins(seller.getUniqueId(), m * exec, now);
                 // Resting buyer receives items (and refund) via their collection box.
                 db().addCollectionItem(buy.ownerUuid(), template, m, now);
                 double refund = m * (buy.pricePerItem() - exec);
                 db().addCollectionCoins(buy.ownerUuid(), refund, now);
+
+                boughtQty.computeIfAbsent(buy.ownerUuid(), k -> new int[1])[0] += m;
 
                 int buyRemaining = buy.quantity() - m;
                 double buyEscrow = Math.max(0, buy.escrowCoins() - m * buy.pricePerItem());
@@ -155,6 +179,8 @@ public final class MatchingEngine {
             } else {
                 db().updateOffer(offer.id(), remaining, 0);
             }
+            boughtQty.forEach((owner, qty) -> notify(owner, "Your buy order filled: " + qty[0]
+                    + "x " + label + " — waiting in your collection box."));
             return MatchResult.ok(filled, earned, Math.max(0, remaining));
         } catch (Exception e) {
             // Hand the items back if persistence failed after escrow.

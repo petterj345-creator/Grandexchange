@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -185,6 +186,55 @@ public final class Database {
             ps.setLong(1, id);
             ps.executeUpdate();
         }
+    }
+
+    /**
+     * Every resting offer on one side, each as its own row (not aggregated by item).
+     *
+     * <p>Orders for the same item are kept together as a contiguous group. Groups are led
+     * by their best price — cheapest first for sells (so the best buy is at the very top),
+     * highest-paying first for buys (so the best payout is at the top) — and within a group
+     * orders follow the same best-first order, ties broken by oldest-first.
+     */
+    public synchronized List<Offer> restingOffers(OfferSide side) throws SQLException {
+        List<Offer> out = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM offers WHERE side = ? AND quantity > 0")) {
+            ps.setString(1, side.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(readOffer(rs));
+                }
+            }
+        }
+
+        boolean sells = side == OfferSide.SELL;
+        // The price that leads each item's group: lowest for sells, highest for buys.
+        Map<String, Double> bestByLabel = new HashMap<>();
+        for (Offer offer : out) {
+            bestByLabel.merge(offer.label(), offer.pricePerItem(),
+                    (x, y) -> sells ? Math.min(x, y) : Math.max(x, y));
+        }
+        out.sort((a, b) -> {
+            int byGroup = sells
+                    ? Double.compare(bestByLabel.get(a.label()), bestByLabel.get(b.label()))
+                    : Double.compare(bestByLabel.get(b.label()), bestByLabel.get(a.label()));
+            if (byGroup != 0) {
+                return byGroup; // cheaper / higher-paying item group first
+            }
+            int byLabel = a.label().compareTo(b.label());
+            if (byLabel != 0) {
+                return byLabel; // keep same-item rows contiguous even when groups tie on price
+            }
+            int byPrice = sells
+                    ? Double.compare(a.pricePerItem(), b.pricePerItem())
+                    : Double.compare(b.pricePerItem(), a.pricePerItem());
+            if (byPrice != 0) {
+                return byPrice; // best price first within the item
+            }
+            return Long.compare(a.createdAt(), b.createdAt()); // oldest first
+        });
+        return out;
     }
 
     /** Aggregated best ask / best bid for every item that has at least one resting offer. */
