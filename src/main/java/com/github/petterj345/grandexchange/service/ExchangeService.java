@@ -109,6 +109,10 @@ public final class ExchangeService {
     }
 
     public void openBuy(Player player, ItemStack source) {
+        if (!plugin.isResource(source)) {
+            player.sendMessage(msg("Only resources can be traded on the exchange.", NamedTextColor.RED));
+            return;
+        }
         ItemStack template = source.clone();
         template.setAmount(1);
         double defaultPrice = 0;
@@ -188,6 +192,10 @@ public final class ExchangeService {
      *                      the top buy offer, so a single Confirm fills the order.
      */
     public void openSell(Player player, ItemStack source, boolean fillBuyOrders) {
+        if (!plugin.isResource(source)) {
+            player.sendMessage(msg("Only resources can be traded on the exchange.", NamedTextColor.RED));
+            return;
+        }
         ItemStack template = source.clone();
         template.setAmount(1);
         int available = Items.count(player, template);

@@ -37,10 +37,10 @@ public final class SellSelectMenu implements InventoryHolder {
     }
 
     public void open(Player player) {
-        inventory = Bukkit.createInventory(this, 9, Component.text("Sell — pick an item"));
+        inventory = Bukkit.createInventory(this, 9, Component.text("Resources — sell order"));
         inventory.setItem(SLOT_BACK, button(Material.ARROW, "Back to browse", null));
-        inventory.setItem(SLOT_INFO, button(Material.PAPER, "Click an item to sell",
-                "Click any item in your inventory below to list it for sale."));
+        inventory.setItem(SLOT_INFO, button(Material.PAPER, "Click a resource to sell",
+                "Click any resource in your inventory below to list it for sale. Only resources can be traded."));
         player.openInventory(inventory);
     }
 

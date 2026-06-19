@@ -1,17 +1,77 @@
 package com.github.petterj345.grandexchange.util;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  * Inventory helpers for counting, removing and granting items while respecting stack sizes.
  */
 public final class Items {
 
+    /**
+     * Default tradeable resources, used when the config has no {@code resources} key at all
+     * (e.g. an upgraded server whose config predates the setting). Kept in sync with the
+     * {@code resources:} block shipped in config.yml.
+     */
+    public static final List<String> DEFAULT_RESOURCE_NAMES = List.of(
+            // ores, ingots, gems and smelting products
+            "COAL", "CHARCOAL", "RAW_IRON", "RAW_GOLD", "RAW_COPPER", "IRON_INGOT", "GOLD_INGOT",
+            "COPPER_INGOT", "NETHERITE_INGOT", "NETHERITE_SCRAP", "IRON_NUGGET", "GOLD_NUGGET",
+            "DIAMOND", "EMERALD", "LAPIS_LAZULI", "REDSTONE", "QUARTZ", "AMETHYST_SHARD",
+            "GLOWSTONE_DUST", "FLINT", "CLAY_BALL", "BRICK", "NETHER_BRICK",
+            // logs and wood
+            "OAK_LOG", "SPRUCE_LOG", "BIRCH_LOG", "JUNGLE_LOG", "ACACIA_LOG", "DARK_OAK_LOG",
+            "MANGROVE_LOG", "CHERRY_LOG", "PALE_OAK_LOG", "CRIMSON_STEM", "WARPED_STEM", "BAMBOO",
+            "STICK",
+            // crops, farming and food
+            "WHEAT", "WHEAT_SEEDS", "CARROT", "POTATO", "BEETROOT", "BEETROOT_SEEDS", "MELON_SLICE",
+            "MELON_SEEDS", "PUMPKIN_SEEDS", "SUGAR_CANE", "SUGAR", "APPLE", "SWEET_BERRIES",
+            "GLOW_BERRIES", "COCOA_BEANS", "NETHER_WART", "KELP", "DRIED_KELP", "HONEYCOMB", "EGG",
+            "BREAD",
+            // meat and fish
+            "BEEF", "PORKCHOP", "CHICKEN", "MUTTON", "RABBIT", "COD", "SALMON", "TROPICAL_FISH",
+            "PUFFERFISH",
+            // mob and gathering drops
+            "LEATHER", "FEATHER", "STRING", "BONE", "BONE_MEAL", "GUNPOWDER", "SLIME_BALL",
+            "ENDER_PEARL", "BLAZE_ROD", "BLAZE_POWDER", "GHAST_TEAR", "SPIDER_EYE", "ROTTEN_FLESH",
+            "MAGMA_CREAM", "PHANTOM_MEMBRANE", "RABBIT_HIDE", "RABBIT_FOOT", "INK_SAC", "GLOW_INK_SAC",
+            "NAUTILUS_SHELL", "PRISMARINE_SHARD", "PRISMARINE_CRYSTALS", "SHULKER_SHELL", "OBSIDIAN");
+
     private Items() {
+    }
+
+    /**
+     * Resolves a list of material names (from config) into a set of {@link Material}s. Names are
+     * matched case-insensitively via {@link Material#matchMaterial(String)}; any that don't
+     * resolve are logged and skipped so one typo doesn't break the whole list.
+     */
+    public static Set<Material> parseResources(List<String> names, Logger logger) {
+        Set<Material> resources = EnumSet.noneOf(Material.class);
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            Material material = Material.matchMaterial(name.trim());
+            if (material == null) {
+                logger.warning("Unknown resource material in config: '" + name + "' — skipping.");
+            } else {
+                resources.add(material);
+            }
+        }
+        return resources;
+    }
+
+    /** Whether an item's type is in the allowed resource set. */
+    public static boolean isResource(ItemStack stack, Set<Material> allowed) {
+        return stack != null && allowed.contains(stack.getType());
     }
 
     /** Counts how many items matching {@code match} (ignoring amount) the player holds. */

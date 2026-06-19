@@ -18,7 +18,7 @@ import java.util.List;
  */
 public final class ExchangeCommand implements TabExecutor {
 
-    private static final List<String> SUBCOMMANDS = List.of("buy", "sell", "offers", "collect", "help");
+    private static final List<String> SUBCOMMANDS = List.of("buy", "sell", "offers", "collect", "reload", "help");
 
     private final Grandexchange plugin;
 
@@ -29,6 +29,18 @@ public final class ExchangeCommand implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
                              @NotNull String label, @NotNull String[] args) {
+        // Reload works from the console too, so handle it before the player-only gate.
+        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+            if (!sender.hasPermission("grandexchange.admin")) {
+                sender.sendMessage(msg("You don't have permission to do that.", NamedTextColor.RED));
+                return true;
+            }
+            plugin.reloadConfig();
+            plugin.reloadResources();
+            sender.sendMessage(msg("Grand Exchange config reloaded. "
+                    + plugin.resources().size() + " tradeable resources.", NamedTextColor.GREEN));
+            return true;
+        }
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can use the Grand Exchange.");
             return true;
@@ -56,6 +68,9 @@ public final class ExchangeCommand implements TabExecutor {
         player.sendMessage(msg("/ge sell - browse buy orders to sell into", NamedTextColor.YELLOW));
         player.sendMessage(msg("/ge offers - view & cancel your buy/sell offers", NamedTextColor.YELLOW));
         player.sendMessage(msg("/ge collect - open your collection box", NamedTextColor.YELLOW));
+        if (player.hasPermission("grandexchange.admin")) {
+            player.sendMessage(msg("/ge reload - reload the config (admin)", NamedTextColor.YELLOW));
+        }
     }
 
     @Override

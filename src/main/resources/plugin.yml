@@ -20,3 +20,6 @@ permissions:
   grandexchange.use:
     description: Allows browsing, buying and selling on the Grand Exchange.
     default: true
+  grandexchange.admin:
+    description: Allows reloading the Grand Exchange config.
+    default: op

@@ -1,2 +1,105 @@
 # Maximum number of active offers (buy + sell) a single player can have at once.
 max-listings-per-player: 20
+
+# Items that may be listed on the exchange. Only these resources can be put into
+# buy and sell orders; anything not in this list is rejected.
+#
+# Use Bukkit material names (https://jd.papermc.io/paper/1.21/org/bukkit/Material.html),
+# case-insensitive. Unknown names are skipped with a warning in the server log.
+# After editing, run /ge reload (or restart) to apply the changes.
+resources:
+  # ores, ingots, gems and smelting products
+  - COAL
+  - CHARCOAL
+  - RAW_IRON
+  - RAW_GOLD
+  - RAW_COPPER
+  - IRON_INGOT
+  - GOLD_INGOT
+  - COPPER_INGOT
+  - NETHERITE_INGOT
+  - NETHERITE_SCRAP
+  - IRON_NUGGET
+  - GOLD_NUGGET
+  - DIAMOND
+  - EMERALD
+  - LAPIS_LAZULI
+  - REDSTONE
+  - QUARTZ
+  - AMETHYST_SHARD
+  - GLOWSTONE_DUST
+  - FLINT
+  - CLAY_BALL
+  - BRICK
+  - NETHER_BRICK
+  # logs and wood
+  - OAK_LOG
+  - SPRUCE_LOG
+  - BIRCH_LOG
+  - JUNGLE_LOG
+  - ACACIA_LOG
+  - DARK_OAK_LOG
+  - MANGROVE_LOG
+  - CHERRY_LOG
+  - PALE_OAK_LOG
+  - CRIMSON_STEM
+  - WARPED_STEM
+  - BAMBOO
+  - STICK
+  # crops, farming and food
+  - WHEAT
+  - WHEAT_SEEDS
+  - CARROT
+  - POTATO
+  - BEETROOT
+  - BEETROOT_SEEDS
+  - MELON_SLICE
+  - MELON_SEEDS
+  - PUMPKIN_SEEDS
+  - SUGAR_CANE
+  - SUGAR
+  - APPLE
+  - SWEET_BERRIES
+  - GLOW_BERRIES
+  - COCOA_BEANS
+  - NETHER_WART
+  - KELP
+  - DRIED_KELP
+  - HONEYCOMB
+  - EGG
+  - BREAD
+  # meat and fish
+  - BEEF
+  - PORKCHOP
+  - CHICKEN
+  - MUTTON
+  - RABBIT
+  - COD
+  - SALMON
+  - TROPICAL_FISH
+  - PUFFERFISH
+  # mob and gathering drops
+  - LEATHER
+  - FEATHER
+  - STRING
+  - BONE
+  - BONE_MEAL
+  - GUNPOWDER
+  - SLIME_BALL
+  - ENDER_PEARL
+  - BLAZE_ROD
+  - BLAZE_POWDER
+  - GHAST_TEAR
+  - SPIDER_EYE
+  - ROTTEN_FLESH
+  - MAGMA_CREAM
+  - PHANTOM_MEMBRANE
+  - RABBIT_HIDE
+  - RABBIT_FOOT
+  - INK_SAC
+  - GLOW_INK_SAC
+  - NAUTILUS_SHELL
+  - PRISMARINE_SHARD
+  - PRISMARINE_CRYSTALS
+  - SHULKER_SHELL
+  - OBSIDIAN

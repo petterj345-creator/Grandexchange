@@ -34,11 +34,12 @@ public final class BuySelectMenu implements InventoryHolder {
     }
 
     public void open(Player player) {
-        inventory = Bukkit.createInventory(this, 9, net.kyori.adventure.text.Component.text("Buy — pick an item"));
+        inventory = Bukkit.createInventory(this, 9, net.kyori.adventure.text.Component.text("Resources — buy order"));
         inventory.setItem(SLOT_BACK, Gui.button(Material.ARROW, "Back", null));
-        inventory.setItem(SLOT_INFO, Gui.button(Material.PAPER, "Click an item to buy", List.of(
-                Gui.line("Click any item in your inventory below", NamedTextColor.GRAY),
-                Gui.line("to set up a buy offer for it.", NamedTextColor.GRAY))));
+        inventory.setItem(SLOT_INFO, Gui.button(Material.PAPER, "Click a resource to buy", List.of(
+                Gui.line("Click any resource in your inventory below", NamedTextColor.GRAY),
+                Gui.line("to set up a buy offer for it.", NamedTextColor.GRAY),
+                Gui.line("Only resources can be traded.", NamedTextColor.GRAY))));
         player.openInventory(inventory);
     }
 }
